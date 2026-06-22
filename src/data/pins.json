@@ -1,0 +1,42 @@
+[
+  {
+    "id": "38",
+    "bank": "IOB31B",
+    "special": ["TF_CS"],
+    "x": 105,
+    "y": 115,
+    "layer": "SD"
+  },
+  {
+    "id": "37",
+    "bank": "IOB31A",
+    "special": ["TF_MOSI"],
+    "x": 105,
+    "y": 145,
+    "layer": "SD"
+  },
+  {
+    "id": "36",
+    "bank": "IOB29B",
+    "special": ["TF_SCLK"],
+    "x": 105,
+    "y": 175,
+    "layer": "SD"
+  },
+  {
+    "id": "75",
+    "bank": "IOT38A",
+    "special": ["RGB_R3", "HDMI_D2P"],
+    "x": 1090,
+    "y": 390,
+    "layer": "HDMI"
+  },
+  {
+    "id": "5V",
+    "bank": "POWER",
+    "special": [],
+    "x": 1090,
+    "y": 540,
+    "layer": "POWER"
+  }
+]

@@ -1,0 +1,29 @@
+[
+  {
+    "name": "GW1NR-9",
+    "type": "FPGA",
+    "x": 450,
+    "y": 170,
+    "width": 250,
+    "height": 220,
+    "description": "Primary FPGA"
+  },
+  {
+    "name": "USB-C",
+    "type": "USB",
+    "x": 510,
+    "y": 20,
+    "width": 170,
+    "height": 100,
+    "description": "Programming and Power"
+  },
+  {
+    "name": "QSPI Flash",
+    "type": "FLASH",
+    "x": 700,
+    "y": 220,
+    "width": 90,
+    "height": 70,
+    "description": "Configuration Storage"
+  }
+]
