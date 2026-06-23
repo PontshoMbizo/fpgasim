@@ -1,0 +1,36 @@
+# Self-host bundle for nikaVSimulator.
+#
+# Prereq (run once on the host): build the hardened sim image so the app can spawn it
+#   podman build -t nika-sim -f Dockerfile.sim sim/
+#
+# The app talks to the host's ROOTLESS Podman via the mounted socket and launches one
+# fully locked-down, network-less sandbox container per simulation (src/lib/sandbox.js).
+# Because each sandbox runs with `--network none`, there is no sim service to network —
+# the only published surface is the app on :3000.
+#
+# Trust note: the mounted socket grants control of that rootless Podman instance (NOT
+# host root). See docs/simulation-backend.md → Threat model.
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      SIM_RUNTIME: podman
+      SIM_IMAGE: localhost/nika-sim:latest
+      SIM_PODMAN_URL: unix:///run/podman/podman.sock
+      # Tunables (see src/lib/sandbox.js):
+      SIM_TIMEOUT_S: "12"
+      SIM_MEMORY: "256m"
+      SIM_CPUS: "1"
+      SIM_MAX_VCD_BYTES: "16777216"
+      SIM_MAX_CONCURRENT: "4"
+      SIM_RATE_PER_MIN: "30"
+    volumes:
+      # Rootless Podman socket from the host. Start it with:
+      #   systemctl --user enable --now podman.socket
+      - ${XDG_RUNTIME_DIR}/podman/podman.sock:/run/podman/podman.sock
+    restart: unless-stopped

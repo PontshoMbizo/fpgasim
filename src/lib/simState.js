@@ -1,70 +1,17 @@
 "use client";
 import React, { createContext, useContext, useMemo, useState } from "react";
 import PINS from "../data/pins.json";
-import { parseVCD, toModel } from "./vcd";
+import { toModel } from "./vcd";
 
 // Single source of truth for the simulation, shared by the Hardware and Waveforms
-// tabs. Signals now live in a canonical model produced by the VCD parser, so when
-// real iverilog WASM lands only the worker's VCD output changes — the UI keeps
-// reading `signals` and `pinStates` the same way.
+// tabs. Signals live in a canonical model produced by the VCD parser; clicking
+// "Run" replaces it via setModel(). The UI reads `signals`/`pinStates` the same way
+// regardless of source.
 
-const CLK_PERIOD = 30; // ns
-const SEED_END = 820; // ns of the demo timeline
 export const PX_PER_NS = 1; // time -> pixel scale for the waveform canvas
 
-// --- Seed design (mirrors EditorPane.js) expressed as a VCD string so the parser
-// is exercised on the default path. Buses are given as hex per change. ----------
-const hexToBits = (hex, width) =>
-  parseInt(hex, 16).toString(2).padStart(width, "0");
-
-function buildSeedVcd() {
-  const vars = [
-    { id: "!", type: "wire", width: 1, name: "clk", dir: "I" },
-    { id: "#", type: "wire", width: 1, name: "btn1", dir: "I" },
-    { id: "$", type: "wire", width: 1, name: "btn2", dir: "I" },
-    { id: "%", type: "reg", width: 6, name: "leds[5:0]", dir: "O" },
-    { id: "&", type: "reg", width: 6, name: "counter[24:19]", dir: "" },
-  ];
-
-  // Collect (t -> [token]) events.
-  const events = {};
-  const add = (t, token) => (events[t] = events[t] || []).push(token);
-
-  // Clock toggles every half period.
-  for (let t = 0, hi = 0; t <= SEED_END; t += CLK_PERIOD / 2, hi ^= 1) add(t, `${hi}!`);
-
-  const bit = [
-    { id: "#", changes: [[0, "1"], [200, "0"], [280, "1"]] },
-    { id: "$", changes: [[0, "1"], [520, "0"], [600, "1"]] },
-  ];
-  for (const s of bit) for (const [t, v] of s.changes) add(t, `${v}${s.id}`);
-
-  const bus = [
-    { id: "%", changes: [[0, "00"], [200, "3F"], [400, "15"], [520, "00"], [680, "2A"]] },
-    { id: "&", changes: [[0, "01"], [120, "08"], [300, "1F"], [520, "2A"], [700, "15"]] },
-  ];
-  for (const s of bus)
-    for (const [t, hex] of s.changes) add(t, `b${hexToBits(hex, 6)} ${s.id}`);
-
-  let vcd = "$timescale 1ns $end\n$scope module top $end\n";
-  for (const v of vars) vcd += `$var ${v.type} ${v.width} ${v.id} ${v.name} $end\n`;
-  vcd += "$upscope $end\n$enddefinitions $end\n";
-  for (const t of Object.keys(events).map(Number).sort((a, b) => a - b)) {
-    vcd += `#${t}\n${events[t].join("\n")}\n`;
-  }
-  return { vcd, dirByName: Object.fromEntries(vars.map((v) => [v.name, v.dir])) };
-}
-
-// Direction (I/O) isn't carried in VCD; re-apply it from the design metadata so the
-// signal list keeps its Dir column.
-function applyDirs(model, dirByName) {
-  if (!dirByName) return model;
-  for (const s of model.signals) if (dirByName[s.name] != null) s.dir = dirByName[s.name];
-  return model;
-}
-
-const seed = buildSeedVcd();
-export const DEFAULT_MODEL = applyDirs(parseVCD(seed.vcd), seed.dirByName);
+// The app starts with an empty waveform view — signals appear only after a run.
+export const DEFAULT_MODEL = { timescale: { value: 1, unit: "ns" }, timeMax: 0, signals: [] };
 
 // Net -> physical pin id, derived from each pin's `special` tags in pins.json so the
 // pin-mapper tool fully controls the mapping. Tags: CLK, BTN1, BTN2, LED0..N.
@@ -110,23 +57,28 @@ function scalarState(v) {
   return "X";
 }
 
-// Find the signal backing a net base name (scalar `clk` or bus `leds[5:0]`).
-function findSignal(byName, base) {
-  if (byName[base]) return byName[base];
-  return Object.values(byName).find((s) => s.name.startsWith(base + "["));
+// Leaf name of a signal, stripped of any bus range (e.g. "leds[5:0]" -> "leds").
+const leafBase = (s) => s.name.replace(/\[.*$/, "");
+
+// Find the signal backing a net base name (scalar `clk` or bus `leds[5:0]`). Real
+// VCDs dump the same leaf name across scopes (tb.clk, tb.dut.clk); prefer the
+// shallowest so pin mapping resolves to the top-level/testbench net.
+function findSignal(signals, base) {
+  const matches = signals.filter((s) => leafBase(s) === base);
+  if (matches.length === 0) return undefined;
+  return matches.reduce((a, b) => ((b.depth ?? 0) < (a.depth ?? 0) ? b : a));
 }
 
 // Builds the { pinId: 'HIGH'|'LOW'|'X'|'Z' } map for a given time cursor, driven
 // entirely by PIN_ASSIGNMENTS + the current model so it works for any design.
 export function computePinStates(model, t) {
-  const byName = Object.fromEntries(model.signals.map((s) => [s.name, s]));
   const states = {};
 
   for (const [net, pinId] of Object.entries(PIN_ASSIGNMENTS)) {
     if (!pinId) continue;
     const m = /^(.+?)\[(\d+)\]$/.exec(net); // e.g. "leds[3]"
     const base = m ? m[1] : net;
-    const sig = findSignal(byName, base);
+    const sig = findSignal(model.signals, base);
     if (!sig) continue;
     const v = valueAt(sig, t);
     states[pinId] = m && sig.kind === "bus" ? bitOf(v, parseInt(m[2], 10)) : scalarState(v);
@@ -139,10 +91,15 @@ const SimContext = createContext(null);
 
 export function SimProvider({ children }) {
   const [model, setModelState] = useState(DEFAULT_MODEL);
-  const [timeCursor, setTimeCursor] = useState(550);
+  const [timeCursor, setTimeCursor] = useState(0);
 
-  // Accepts a raw VCD string, a full model, or a bare signals array.
-  const setModel = (input) => setModelState(toModel(input));
+  // Accepts a raw VCD string, a full model, or a bare signals array. Returns the
+  // parsed model so callers can read e.g. signal count immediately.
+  const setModel = (input) => {
+    const m = toModel(input);
+    setModelState(m);
+    return m;
+  };
 
   const pinStates = useMemo(() => computePinStates(model, timeCursor), [model, timeCursor]);
   const value = useMemo(

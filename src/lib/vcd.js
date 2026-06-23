@@ -28,16 +28,27 @@ function normScalar(c) {
   return v === "0" || v === "1" || v === "x" || v === "z" ? v : "x";
 }
 
+// Multiplier from a VCD timescale unit to nanoseconds, so downstream rendering
+// (pxPerNs) is unit-independent regardless of the design's `timescale.
+const UNIT_TO_NS = { s: 1e9, ms: 1e6, us: 1e3, ns: 1, ps: 1e-3, fs: 1e-6 };
+function timescaleToNs(ts) {
+  const unit = UNIT_TO_NS[ts.unit] ?? 1;
+  return ts.value * unit;
+}
+
 export function parseVCD(text) {
   const tokens = String(text).split(/\s+/).filter(Boolean);
 
-  const byId = {}; // vcd id symbol -> signal
+  const byId = {}; // vcd id symbol -> the first signal declared with that id
   const signals = []; // in declaration order
+  const scope = []; // current $scope stack for hierarchical paths
   let timescale = { value: 1, unit: "ns" };
   let t = 0;
   let timeMax = 0;
 
-  // Record a value change for a signal id at the current time.
+  // Record a value change for a signal id at the current time. Aliased vars (the
+  // same net dumped under multiple scopes) share one `changes` array, so a single
+  // push updates them all.
   const record = (id, v) => {
     const sig = byId[id];
     if (!sig) return;
@@ -70,24 +81,40 @@ export function parseVCD(text) {
       const sig = {
         id,
         name,
+        path: [...scope, name].join("."),
+        depth: scope.length,
         type,
         width: Number.isNaN(width) ? 1 : width,
         dir: "",
         kind: width > 1 ? "bus" : "bit",
-        changes: [],
+        // Aliased nets reuse the first declaration's history array; record() then
+        // updates every alias with one push.
+        changes: byId[id] ? byId[id].changes : [],
       };
-      byId[id] = sig;
+      if (!byId[id]) byId[id] = sig;
       signals.push(sig);
       while (i < tokens.length && tokens[i] !== "$end") i++;
       continue;
     }
 
-    // Skip the remaining header keywords up to their $end.
-    if (tok === "$comment" || tok === "$date" || tok === "$version" || tok === "$scope") {
+    // "$scope <type> <name> $end" — track the name for hierarchical paths.
+    if (tok === "$scope") {
+      i++; // type (module/begin/...)
+      scope.push(tokens[++i]);
       while (i < tokens.length && tokens[i] !== "$end") i++;
       continue;
     }
-    if (tok === "$upscope" || tok === "$enddefinitions" || tok === "$dumpvars" ||
+    if (tok === "$upscope") {
+      scope.pop();
+      continue;
+    }
+
+    // Skip the remaining header keywords up to their $end.
+    if (tok === "$comment" || tok === "$date" || tok === "$version") {
+      while (i < tokens.length && tokens[i] !== "$end") i++;
+      continue;
+    }
+    if (tok === "$enddefinitions" || tok === "$dumpvars" ||
         tok === "$dumpall" || tok === "$dumpon" || tok === "$dumpoff" || tok === "$end") {
       continue;
     }
@@ -116,8 +143,19 @@ export function parseVCD(text) {
     }
   }
 
-  // Ensure every signal has an initial sample and ends at timeMax for clean rendering.
-  for (const sig of signals) {
+  // Convert all times from the design's timescale into nanoseconds so rendering is
+  // unit-independent (a 1ps design and a 1ns design share one pxPerNs scale).
+  // Post-process once per unique value history (aliased vars share an array).
+  const uniques = Object.values(byId);
+
+  const nsFactor = timescaleToNs(timescale);
+  if (nsFactor !== 1) {
+    for (const sig of uniques) for (const c of sig.changes) c.t *= nsFactor;
+    timeMax *= nsFactor;
+  }
+
+  // Ensure every signal has an initial sample and starts at t=0 for clean rendering.
+  for (const sig of uniques) {
     if (sig.changes.length === 0) {
       sig.changes.push({ t: 0, v: sig.kind === "bus" ? "0".repeat(Math.ceil(sig.width / 4)) : "x" });
     }

@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState } from 'react';
 import Editor from '@monaco-editor/react';
 import { Code2, Maximize2, List, Bookmark, Brackets, RotateCcw, Lock, ChevronDown, Play, Loader } from 'lucide-react';
 import PaneHeader from './ui/PaneHeader';
@@ -33,28 +33,34 @@ endmodule
 
   const { setModel } = useSim();
   const [running, setRunning] = useState(false);
-  const workerRef = useRef(null);
+  const [status, setStatus] = useState(null); // { ok, text }
 
-  // Spin up the simulator worker once. On SIMULATION_DONE it returns a VCD which
-  // we feed straight into the shared model — both tabs update from it. The WASM
-  // engine swap (#4) lives entirely inside the worker.
-  useEffect(() => {
-    const worker = new Worker(new URL('../simulator.worker.js', import.meta.url));
-    worker.onmessage = (e) => {
-      if (e.data?.type === 'SIMULATION_DONE') {
-        setModel(e.data.vcd);
-        setRunning(false);
-      }
-    };
-    worker.postMessage({ type: 'INIT' });
-    workerRef.current = worker;
-    return () => worker.terminate();
-  }, [setModel]);
-
-  const handleRun = () => {
+  // Send the source to the sandboxed Icarus Verilog backend; on success the returned
+  // VCD flows into the shared model and both tabs update. See /api/simulate.
+  const handleRun = async () => {
     if (running) return;
     setRunning(true);
-    workerRef.current?.postMessage({ type: 'SIMULATE', payload: { code } });
+    setStatus(null);
+    try {
+      const res = await fetch('/api/simulate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        const model = setModel(data.vcd);
+        const n = model?.signals?.length ?? 0;
+        setStatus({ ok: true, text: `Compiled ✓ ${n} signal${n === 1 ? '' : 's'}` });
+      } else {
+        const firstLine = (data.log || 'Simulation failed').split('\n').find(Boolean) || 'Simulation failed';
+        setStatus({ ok: false, text: `${data.stage || 'error'}: ${firstLine}` });
+      }
+    } catch (e) {
+      setStatus({ ok: false, text: `Request failed: ${e.message}` });
+    } finally {
+      setRunning(false);
+    }
   };
 
   return (
@@ -138,8 +144,10 @@ endmodule
 
       {/* Footer */}
       <div className="h-8 bg-panel border-t border-edge/50 flex items-center justify-between px-4 shrink-0 text-[12px] text-text-muted">
-        <div>Saved</div>
-        <div>Ln 1, Col 1</div>
+        <div className={`truncate font-mono ${status ? (status.ok ? 'text-accent' : 'text-danger') : ''}`} title={status?.text || ''}>
+          {status ? status.text : 'Saved'}
+        </div>
+        <div className="shrink-0 pl-3">Ln 1, Col 1</div>
       </div>
 
     </div>

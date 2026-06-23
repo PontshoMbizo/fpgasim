@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "node --test test/*.test.mjs",
+    "test:unit": "node --test test/vcd.test.mjs test/testbench.test.mjs"
   },
   "dependencies": {
     "@monaco-editor/react": "^4.7.0",

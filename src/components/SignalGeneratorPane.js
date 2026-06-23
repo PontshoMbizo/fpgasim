@@ -7,7 +7,18 @@ import { COLORS } from '../lib/theme';
 // so it stays in sync with the Hardware tab. Time is stored in ns; pixels are
 // derived here via `pxPerNs`.
 export default function SignalGeneratorPane() {
-  const { signals, timeCursor, setTimeCursor, timeMax, pxPerNs } = useSim();
+  const { signals: allSignals, timeCursor, setTimeCursor, timeMax, pxPerNs } = useSim();
+
+  // Real VCDs dump the same net under multiple scopes (tb.clk, tb.dut.clk) sharing
+  // one id. Show one row per net, preferring the shallowest scope.
+  const signals = React.useMemo(() => {
+    const byId = new Map();
+    for (const s of allSignals) {
+      const cur = byId.get(s.id);
+      if (!cur || (s.depth ?? 0) < (cur.depth ?? 0)) byId.set(s.id, s);
+    }
+    return [...byId.values()];
+  }, [allSignals]);
 
   const px = (t) => t * pxPerNs;
   const canvasW = Math.max(px(timeMax) + 100, 400); // a little trailing space
@@ -73,7 +84,7 @@ export default function SignalGeneratorPane() {
               <div className="w-8 text-text-muted font-mono text-[10px]">{sig.dir}</div>
               <div className="w-10 text-text-muted font-mono text-[10px]">{sig.type}</div>
               <div className="flex-1 font-mono flex">
-                <span className="text-text-secondary">{sig.name}</span>
+                <span className="text-text-secondary" title={sig.path || sig.name}>{sig.name}</span>
               </div>
             </div>
           ))}
@@ -95,29 +106,39 @@ export default function SignalGeneratorPane() {
           </svg>
         </div>
 
-        {/* Waveform Area */}
-        <div className="relative h-[800px]" style={{ width: canvasW }}>
-          {/* Vertical Grid */}
-          <svg width="100%" height="100%" className="absolute inset-0 pointer-events-none">
-            {[...Array(gridCount)].map((_, i) => (
-              <line key={i} x1={px(i * GRID_NS)} y1="0" x2={px(i * GRID_NS)} y2="800" stroke={COLORS.edge} strokeWidth="1" strokeDasharray="2,2" opacity="0.5" />
-            ))}
-            {/* Shared cursor line */}
-            <line x1={px(timeCursor)} y1="0" x2={px(timeCursor)} y2="800" stroke={COLORS.danger} strokeWidth="1" />
-          </svg>
-
-          {/* Traces */}
-          <div className="absolute inset-0 flex flex-col pt-[2px]">
-            {signals.map((sig) => (
-              <div key={sig.id} className="h-[18px] relative flex items-center">
-                <svg width={canvasW} height="18" className="absolute top-0 left-0">
-                  <line x1="0" y1="18" x2={canvasW} y2="18" stroke={COLORS.hover} strokeWidth="1" />
-                  {renderWaveform(sig)}
-                </svg>
-              </div>
-            ))}
+        {signals.length === 0 ? (
+          /* Empty state — no simulation has run yet. */
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div className="text-center text-text-muted text-[13px] font-sans">
+              <div className="font-mono text-[12px] opacity-70">No waveforms yet</div>
+              <div className="mt-1">Press <span className="text-accent font-medium">Run</span> to simulate your design.</div>
+            </div>
           </div>
-        </div>
+        ) : (
+          /* Waveform Area */
+          <div className="relative h-[800px]" style={{ width: canvasW }}>
+            {/* Vertical Grid */}
+            <svg width="100%" height="100%" className="absolute inset-0 pointer-events-none">
+              {[...Array(gridCount)].map((_, i) => (
+                <line key={i} x1={px(i * GRID_NS)} y1="0" x2={px(i * GRID_NS)} y2="800" stroke={COLORS.edge} strokeWidth="1" strokeDasharray="2,2" opacity="0.5" />
+              ))}
+              {/* Shared cursor line */}
+              <line x1={px(timeCursor)} y1="0" x2={px(timeCursor)} y2="800" stroke={COLORS.danger} strokeWidth="1" />
+            </svg>
+
+            {/* Traces */}
+            <div className="absolute inset-0 flex flex-col pt-[2px]">
+              {signals.map((sig) => (
+                <div key={sig.id} className="h-[18px] relative flex items-center">
+                  <svg width={canvasW} height="18" className="absolute top-0 left-0">
+                    <line x1="0" y1="18" x2={canvasW} y2="18" stroke={COLORS.hover} strokeWidth="1" />
+                    {renderWaveform(sig)}
+                  </svg>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
       </div>
 

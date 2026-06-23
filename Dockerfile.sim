@@ -1,0 +1,17 @@
+# Hardened, minimal image for running ONE untrusted Verilog simulation per container.
+# Build:  podman build -t nika-sim -f Dockerfile.sim sim/
+# Run:    see src/lib/sandbox.js for the full locked-down flag set.
+FROM alpine:3.20
+
+# Icarus Verilog only — no shells/tools beyond what's needed to compile + run.
+RUN apk add --no-cache iverilog
+
+# Non-root user; everything happens in a tmpfs /work mounted at run time.
+RUN adduser -D -u 1000 sim
+
+COPY entrypoint.sh /usr/local/bin/run-sim
+RUN chmod +x /usr/local/bin/run-sim
+
+USER sim
+WORKDIR /work
+ENTRYPOINT ["/usr/local/bin/run-sim"]
