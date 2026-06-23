@@ -2,28 +2,109 @@
   {
     "name": "GW1NR-9",
     "type": "FPGA",
-    "x": 450,
-    "y": 170,
-    "width": 250,
-    "height": 220,
-    "description": "Primary FPGA"
+    "description": "",
+    "x": 499,
+    "y": 321,
+    "width": 69,
+    "height": 66
   },
   {
-    "name": "USB-C",
+    "name": "S1",
+    "type": "BUTTON",
+    "description": "",
+    "x": 358,
+    "y": 290,
+    "width": 36,
+    "height": 24
+  },
+  {
+    "name": "S2",
+    "type": "BUTTON",
+    "description": "",
+    "x": 359,
+    "y": 396,
+    "width": 32,
+    "height": 25
+  },
+  {
+    "name": "USB",
     "type": "USB",
-    "x": 510,
-    "y": 20,
-    "width": 170,
-    "height": 100,
-    "description": "Programming and Power"
+    "description": "",
+    "x": 345,
+    "y": 327,
+    "width": 49,
+    "height": 57
   },
   {
-    "name": "QSPI Flash",
+    "name": "REG",
+    "type": "REGULATOR",
+    "description": "",
+    "x": 404,
+    "y": 292,
+    "width": 65,
+    "height": 74
+  },
+  {
+    "name": "BL702",
+    "type": "IC",
+    "description": "usb-jtag and uart",
+    "x": 403,
+    "y": 369,
+    "width": 66,
+    "height": 50
+  },
+  {
+    "name": "27MHz",
+    "type": "OSC",
+    "description": "",
+    "x": 594,
+    "y": 350,
+    "width": 27,
+    "height": 18
+  },
+  {
+    "name": "32MBit",
     "type": "FLASH",
-    "x": 700,
-    "y": 220,
-    "width": 90,
-    "height": 70,
-    "description": "Configuration Storage"
+    "description": "",
+    "x": 612,
+    "y": 292,
+    "width": 43,
+    "height": 33
+  },
+  {
+    "name": "LCD",
+    "type": "IC",
+    "description": "",
+    "x": 668,
+    "y": 335,
+    "width": 31,
+    "height": 40
+  },
+  {
+    "name": "RGB LCD",
+    "type": "CONNECTOR",
+    "description": "",
+    "x": 574,
+    "y": 383,
+    "width": 165,
+    "height": 33
+  },
+  {
+    "name": "HDMI",
+    "type": "CONNECTOR",
+    "description": "",
+    "x": 751,
+    "y": 308,
+    "width": 92,
+    "height": 94
+  },
+  {
+    "name": "LEDs",
+    "type": "LED",
+    "description": "",
+    "x": 470,
+    "y": 324,
+    "width": 21,
+    "height": 62
   }
 ]

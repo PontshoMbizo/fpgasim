@@ -12,6 +12,9 @@ import ComponentOverlay from "./ComponentOverlay";
 import PinOverlay from "./PinOverlay";
 import SearchPanel from "./SearchPanel";
 import FloatingInspector from "./FloatingInspector";
+import Legend from "./Legend";
+
+import { useSim } from "../../lib/simState";
 
 const BOARD_WIDTH = 1200;
 const BOARD_HEIGHT = 700;
@@ -23,16 +26,23 @@ export default function TangNanoViewer() {
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [layer, setLayer] = useState("ALL");
 
+  const { pinStates } = useSim();
+
+  // Distinct layers present in the data drive the filter dropdown.
+  const layers = useMemo(
+    () => ["ALL", ...Array.from(new Set(PINS.map((p) => p.layer))).sort()],
+    []
+  );
+
   const filteredPins = useMemo(() => {
+    const q = search.toLowerCase();
     return PINS.filter((pin) => {
       const searchMatch =
         search === "" ||
-        pin.id.toLowerCase().includes(search.toLowerCase()) ||
-        pin.bank.toLowerCase().includes(search.toLowerCase()) ||
-        pin.special.some((s) => s.toLowerCase().includes(search.toLowerCase()));
-
+        pin.id.toLowerCase().includes(q) ||
+        pin.bank.toLowerCase().includes(q) ||
+        pin.special.some((s) => s.toLowerCase().includes(q));
       const layerMatch = layer === "ALL" || pin.layer === layer;
-
       return searchMatch && layerMatch;
     });
   }, [search, layer]);
@@ -40,26 +50,30 @@ export default function TangNanoViewer() {
   const highlightedNet = hoveredPin ? hoveredPin.special : [];
 
   return (
-    <div className="w-full h-full bg-[#1e1e1e] flex flex-col font-sans relative">
-      
-      {/* Background Grid Pattern */}
-      <div 
-        className="absolute inset-0 opacity-[0.03] pointer-events-none z-0" 
-        style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, white 1px, transparent 0)', backgroundSize: '24px 24px' }} 
-      />
+    <div className="w-full h-full bg-panel flex flex-col font-sans relative">
 
-      <SearchPanel 
-        search={search} 
-        setSearch={setSearch} 
-        layer={layer} 
-        setLayer={setLayer} 
+      {/* Background Grid Pattern */}
+      <div
+        className="absolute inset-0 opacity-[0.03] pointer-events-none z-0"
+        style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, white 1px, transparent 0)', backgroundSize: '24px 24px' }}
       />
 
       <div
         className="flex-1 overflow-hidden relative z-10"
         onMouseMove={(e) => setMousePos({ x: e.clientX, y: e.clientY })}
       >
-        <TransformWrapper minScale={0.5} maxScale={8} centerOnInit>
+        <SearchPanel
+          search={search}
+          setSearch={setSearch}
+          layer={layer}
+          setLayer={setLayer}
+          layers={layers}
+          count={filteredPins.length}
+        />
+
+        {/* smooth=false → each wheel tick adds a fixed `step` (scale + ±1*step)
+            instead of step*deltaY, which jumped straight to maxScale on one tick. */}
+        <TransformWrapper minScale={0.5} maxScale={8} centerOnInit smooth={false} wheel={{ step: 0.3 }}>
           <TransformComponent wrapperStyle={{ width: "100%", height: "100%" }}>
             <svg
               viewBox={`0 0 ${BOARD_WIDTH} ${BOARD_HEIGHT}`}
@@ -82,12 +96,14 @@ export default function TangNanoViewer() {
               {filteredPins.map((pin) => {
                 const isHighlighted =
                   highlightedNet.length > 0 &&
+                  pin.id !== hoveredPin?.id &&
                   pin.special.some((s) => highlightedNet.includes(s));
 
                 return (
                   <PinOverlay
                     key={pin.id}
                     pin={pin}
+                    state={pinStates[pin.id]}
                     isHovered={hoveredPin?.id === pin.id}
                     isHighlighted={isHighlighted}
                     onHover={() => setHoveredPin(pin)}
@@ -98,14 +114,17 @@ export default function TangNanoViewer() {
             </svg>
           </TransformComponent>
         </TransformWrapper>
+
+        <Legend />
       </div>
 
-      <FloatingInspector 
-        hoveredPin={hoveredPin} 
-        hoveredComponent={hoveredComponent} 
-        mousePos={mousePos} 
+      <FloatingInspector
+        hoveredPin={hoveredPin}
+        hoveredComponent={hoveredComponent}
+        pinState={hoveredPin ? pinStates[hoveredPin.id] : undefined}
+        mousePos={mousePos}
       />
-      
+
     </div>
   );
 }

@@ -2,9 +2,13 @@
 import React, { useEffect, useState } from 'react';
 import EditorPane from '@/components/EditorPane';
 import SimulationPane from '@/components/SimulationPane';
+import { SimProvider } from '@/lib/simState';
+
+const DEFAULT_SPLIT = 60;
 
 export default function Home() {
-  const [topHeight, setTopHeight] = useState(60); // 60% default
+  const [topHeight, setTopHeight] = useState(DEFAULT_SPLIT); // % height of editor
+  const [fullscreen, setFullscreen] = useState(null); // 'editor' | 'sim' | null
 
   // PostMessage communication skeleton
   useEffect(() => {
@@ -40,29 +44,62 @@ export default function Home() {
     document.body.style.cursor = 'row-resize';
   };
 
+  // Collapse toggles the split toward one pane and restores on second click.
+  const editorCollapsed = topHeight <= 12;
+  const simCollapsed = topHeight >= 88;
+  const toggleEditorCollapse = () =>
+    setTopHeight(editorCollapsed ? DEFAULT_SPLIT : 10);
+  const toggleSimCollapse = () =>
+    setTopHeight(simCollapsed ? DEFAULT_SPLIT : 90);
+
+  const toggleFullscreen = (pane) =>
+    setFullscreen((cur) => (cur === pane ? null : pane));
+
   return (
-    <div className="h-screen w-full flex flex-col bg-[#0a0a0a] text-white overflow-hidden font-sans selection:bg-blue-500/30">
-      
-      {/* Top Pane: Editor */}
-      <div style={{ height: `${topHeight}%` }} className="w-full p-2 pb-1 flex flex-col min-h-0">
-        <EditorPane />
-      </div>
+    <SimProvider>
+      <div className="h-screen w-full flex flex-col bg-base text-text-primary overflow-hidden font-sans selection:bg-focus/30">
 
-      {/* Resizer Handle */}
-      <div 
-        className="h-2 w-full flex items-center justify-center cursor-row-resize shrink-0 group z-50 relative"
-        onMouseDown={handleMouseDown}
-      >
-        {/* Invisible larger hit area for easier grabbing */}
-        <div className="absolute inset-y-[-4px] inset-x-0" />
-        <div className="w-12 h-1 bg-[#3e3e42] rounded-full group-hover:bg-gray-400 transition-colors" />
-      </div>
+        {/* Top Pane: Editor */}
+        <div
+          style={fullscreen === 'editor' ? undefined : { height: `${topHeight}%` }}
+          className={`w-full p-2 pb-1 flex flex-col min-h-0 ${fullscreen === 'editor' ? 'fixed inset-0 z-[100] p-3 bg-base' : ''}`}
+          hidden={fullscreen === 'sim'}
+        >
+          <EditorPane
+            isFullscreen={fullscreen === 'editor'}
+            onFullscreen={() => toggleFullscreen('editor')}
+            isCollapsed={editorCollapsed}
+            onCollapse={toggleEditorCollapse}
+          />
+        </div>
 
-      {/* Bottom Pane: Simulation (Hardware / Waveforms) */}
-      <div style={{ height: `${100 - topHeight}%` }} className="w-full p-2 pt-1 flex flex-col min-h-0">
-        <SimulationPane />
-      </div>
+        {/* Resizer Handle */}
+        {!fullscreen && (
+          <div
+            className="h-2 w-full flex items-center justify-center cursor-row-resize shrink-0 group z-50 relative"
+            onMouseDown={handleMouseDown}
+          >
+            {/* Invisible larger hit area for easier grabbing */}
+            <div className="absolute inset-y-[-4px] inset-x-0" />
+            <div className="w-12 h-1 bg-edge rounded-full group-hover:bg-text-muted transition-colors" />
+          </div>
+        )}
 
-    </div>
+        {/* Bottom Pane: Simulation (Hardware / Waveforms) */}
+        <div
+          style={fullscreen === 'sim' ? undefined : { height: `${100 - topHeight}%` }}
+          className={`w-full p-2 pt-1 flex flex-col min-h-0 ${fullscreen === 'sim' ? 'fixed inset-0 z-[100] p-3 bg-base' : ''}`}
+          hidden={fullscreen === 'editor'}
+        >
+          <SimulationPane
+            isFullscreen={fullscreen === 'sim'}
+            onFullscreen={() => toggleFullscreen('sim')}
+            isCollapsed={simCollapsed}
+            onCollapse={toggleSimCollapse}
+          />
+        </div>
+
+      </div>
+    </SimProvider>
   );
 }

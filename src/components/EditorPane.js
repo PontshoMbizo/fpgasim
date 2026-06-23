@@ -1,9 +1,10 @@
 "use client";
 import React, { useState } from 'react';
 import Editor from '@monaco-editor/react';
-import { Code2, Maximize2, Maximize, ChevronUp, Settings, List, Bookmark, Brackets, RotateCcw, Lock, ChevronDown } from 'lucide-react';
+import { Code2, Maximize2, List, Bookmark, Brackets, RotateCcw, Lock, ChevronDown } from 'lucide-react';
+import PaneHeader from './ui/PaneHeader';
 
-export default function EditorPane() {
+export default function EditorPane({ isFullscreen, onFullscreen, isCollapsed, onCollapse }) {
   const [code, setCode] = useState(`module top(
     input clk,
     input btn1,
@@ -30,49 +31,45 @@ endmodule
 `);
 
   return (
-    <div className="w-full h-full flex flex-col bg-[#1e1e1e] rounded-lg border border-[#3e3e42] overflow-hidden font-sans shadow-xl">
-      
-      {/* Top Header */}
-      <div className="h-10 bg-[#262626] flex items-center justify-between px-3 shrink-0">
-        <div className="flex items-center gap-2 text-gray-300 font-semibold text-[13px]">
-          <Code2 size={16} className="text-green-500" />
+    <div className="w-full h-full flex flex-col bg-panel rounded-lg border border-edge overflow-hidden font-sans shadow-xl">
+
+      <PaneHeader
+        isFullscreen={isFullscreen}
+        onFullscreen={onFullscreen}
+        isCollapsed={isCollapsed}
+        onCollapse={onCollapse}
+      >
+        <div className="flex items-center gap-2 text-text-secondary font-semibold text-[13px]">
+          <Code2 size={16} className="text-accent" />
           Code
         </div>
-        <div className="flex items-center gap-3 text-gray-400">
-          <button className="hover:text-white transition-colors" title="Fullscreen">
-            <Maximize size={14} />
-          </button>
-          <button className="hover:text-white transition-colors" title="Collapse">
-            <ChevronUp size={16} />
-          </button>
-        </div>
-      </div>
+      </PaneHeader>
 
       {/* Sub Toolbar */}
-      <div className="h-10 bg-[#1e1e1e] flex items-center justify-between px-3 shrink-0">
-        <div className="flex items-center gap-4 text-[13px] text-gray-300">
-          <button className="flex items-center gap-1 hover:bg-[#3e3e42] px-2 py-1 rounded transition-colors">
+      <div className="h-10 bg-panel flex items-center justify-between px-3 shrink-0">
+        <div className="flex items-center gap-4 text-[13px] text-text-secondary">
+          <button className="flex items-center gap-1 hover:bg-edge px-2 py-1 rounded transition-colors">
             Verilog <ChevronDown size={14} />
           </button>
-          <div className="flex items-center gap-1 text-gray-400">
+          <div className="flex items-center gap-1 text-text-muted">
             <Lock size={12} />
             <span className="text-[12px]">Auto</span>
           </div>
         </div>
-        <div className="flex items-center gap-3 text-gray-400">
-          <button className="hover:text-white transition-colors" title="Format">
+        <div className="flex items-center gap-3 text-text-muted">
+          <button className="hover:text-text-primary transition-colors" title="Format">
             <List size={15} />
           </button>
-          <button className="hover:text-white transition-colors" title="Snippets">
+          <button className="hover:text-text-primary transition-colors" title="Snippets">
             <Bookmark size={15} />
           </button>
-          <button className="hover:text-white transition-colors" title="Auto Indent">
+          <button className="hover:text-text-primary transition-colors" title="Auto Indent">
             <Brackets size={15} />
           </button>
-          <button className="hover:text-white transition-colors" title="Reset">
+          <button className="hover:text-text-primary transition-colors" title="Reset">
             <RotateCcw size={15} />
           </button>
-          <button className="hover:text-white transition-colors" title="Fullscreen">
+          <button onClick={onFullscreen} className="hover:text-text-primary transition-colors" title="Fullscreen">
             <Maximize2 size={15} />
           </button>
         </div>
@@ -104,7 +101,7 @@ endmodule
       </div>
 
       {/* Footer */}
-      <div className="h-8 bg-[#1e1e1e] border-t border-[#3e3e42]/50 flex items-center justify-between px-4 shrink-0 text-[12px] text-gray-500">
+      <div className="h-8 bg-panel border-t border-edge/50 flex items-center justify-between px-4 shrink-0 text-[12px] text-text-muted">
         <div>Saved</div>
         <div>Ln 1, Col 1</div>
       </div>

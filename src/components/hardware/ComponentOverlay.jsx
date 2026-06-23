@@ -1,4 +1,5 @@
 import React from 'react';
+import { COLORS } from '../../lib/theme';
 
 export default function ComponentOverlay({ component, isHovered, onHover, onLeave }) {
   return (
@@ -8,8 +9,9 @@ export default function ComponentOverlay({ component, isHovered, onHover, onLeav
         y={component.y}
         width={component.width}
         height={component.height}
-        fill="transparent"
-        stroke={isHovered ? "#38bdf8" : "transparent"}
+        fill={isHovered ? COLORS.info : "transparent"}
+        fillOpacity={isHovered ? 0.08 : 0}
+        stroke={isHovered ? COLORS.info : "transparent"}
         strokeWidth="3"
         rx="8"
       />

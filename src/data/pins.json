@@ -1,42 +1,602 @@
 [
   {
-    "id": "38",
-    "bank": "IOB31B",
-    "special": ["TF_CS"],
-    "x": 105,
-    "y": 115,
-    "layer": "SD"
+    "id": "3V3",
+    "name": "3V3",
+    "num": null,
+    "bank": "3V3",
+    "side": "TOP",
+    "kind": "pwr",
+    "special": [],
+    "layer": "POWER",
+    "x": 759,
+    "y": 280
   },
   {
-    "id": "37",
-    "bank": "IOB31A",
-    "special": ["TF_MOSI"],
-    "x": 105,
-    "y": 145,
-    "layer": "SD"
+    "id": "GND",
+    "name": "GND",
+    "num": null,
+    "bank": "GND",
+    "side": "TOP",
+    "kind": "gnd",
+    "special": [],
+    "layer": "POWER",
+    "x": 743,
+    "y": 280
   },
   {
-    "id": "36",
-    "bank": "IOB29B",
-    "special": ["TF_SCLK"],
-    "x": 105,
-    "y": 175,
-    "layer": "SD"
+    "id": "32",
+    "name": "IOB15B",
+    "num": 32,
+    "bank": "IOB15",
+    "side": "TOP",
+    "kind": "io",
+    "special": [],
+    "layer": "IO",
+    "x": 726,
+    "y": 280
   },
   {
-    "id": "75",
-    "bank": "IOT38A",
-    "special": ["RGB_R3", "HDMI_D2P"],
-    "x": 1090,
-    "y": 390,
-    "layer": "HDMI"
+    "id": "31",
+    "name": "IOB15A",
+    "num": 31,
+    "bank": "IOB15",
+    "side": "TOP",
+    "kind": "io",
+    "special": [],
+    "layer": "IO",
+    "x": 709,
+    "y": 280
+  },
+  {
+    "id": "49",
+    "name": "IOR24A",
+    "num": 49,
+    "bank": "IOR24",
+    "side": "TOP",
+    "kind": "io",
+    "special": [],
+    "layer": "IO",
+    "x": 693,
+    "y": 280
+  },
+  {
+    "id": "48",
+    "name": "IOR24B",
+    "num": 48,
+    "bank": "IOR24",
+    "side": "TOP",
+    "kind": "io",
+    "special": [],
+    "layer": "IO",
+    "x": 676,
+    "y": 280
   },
   {
     "id": "5V",
-    "bank": "POWER",
+    "name": "5V",
+    "num": null,
+    "bank": "5V",
+    "side": "TOP",
+    "kind": "pwr",
     "special": [],
-    "x": 1090,
-    "y": 540,
-    "layer": "POWER"
+    "layer": "POWER",
+    "x": 660,
+    "y": 280
+  },
+  {
+    "id": "70",
+    "name": "IOT41B",
+    "num": 70,
+    "bank": "IOT41",
+    "side": "TOP",
+    "kind": "io",
+    "special": [
+      "HDMI_D0_N"
+    ],
+    "layer": "HDMI",
+    "x": 643,
+    "y": 280
+  },
+  {
+    "id": "71",
+    "name": "IOT41A",
+    "num": 71,
+    "bank": "IOT41",
+    "side": "TOP",
+    "kind": "io",
+    "special": [
+      "HDMI_D0_P"
+    ],
+    "layer": "HDMI",
+    "x": 625,
+    "y": 280
+  },
+  {
+    "id": "73",
+    "name": "IOT39A",
+    "num": 73,
+    "bank": "IOT39",
+    "side": "TOP",
+    "kind": "io",
+    "special": [
+      "HDMI_D1_P"
+    ],
+    "layer": "HDMI",
+    "x": 592,
+    "y": 280
+  },
+  {
+    "id": "72",
+    "name": "IOT39B",
+    "num": 72,
+    "bank": "IOT39",
+    "side": "TOP",
+    "kind": "io",
+    "special": [
+      "HDMI_D1_N"
+    ],
+    "layer": "HDMI",
+    "x": 609,
+    "y": 280
+  },
+  {
+    "id": "74",
+    "name": "IOT38B",
+    "num": 74,
+    "bank": "IOT38",
+    "side": "TOP",
+    "kind": "io",
+    "special": [
+      "HDMI_D2_N"
+    ],
+    "layer": "HDMI",
+    "x": 574,
+    "y": 280
+  },
+  {
+    "id": "75",
+    "name": "IOT38A",
+    "num": 75,
+    "bank": "IOT38",
+    "side": "TOP",
+    "kind": "io",
+    "special": [
+      "HDMI_D2_P"
+    ],
+    "layer": "HDMI",
+    "x": 557,
+    "y": 280
+  },
+  {
+    "id": "76",
+    "name": "IOT37B",
+    "num": 76,
+    "bank": "IOT37",
+    "side": "TOP",
+    "kind": "io",
+    "special": [],
+    "layer": "IO",
+    "x": 541,
+    "y": 280
+  },
+  {
+    "id": "77",
+    "name": "IOT37A",
+    "num": 77,
+    "bank": "IOT37",
+    "side": "TOP",
+    "kind": "io",
+    "special": [],
+    "layer": "IO",
+    "x": 524,
+    "y": 280
+  },
+  {
+    "id": "79",
+    "name": "IOT12B",
+    "num": 79,
+    "bank": "IOT12",
+    "side": "TOP",
+    "kind": "io",
+    "special": [],
+    "layer": "IO",
+    "x": 508,
+    "y": 280
+  },
+  {
+    "id": "80",
+    "name": "IOT12A",
+    "num": 80,
+    "bank": "IOT12",
+    "side": "TOP",
+    "kind": "io",
+    "special": [],
+    "layer": "IO",
+    "x": 491,
+    "y": 280
+  },
+  {
+    "id": "81",
+    "name": "IOT11B",
+    "num": 81,
+    "bank": "IOT11",
+    "side": "TOP",
+    "kind": "io",
+    "special": [],
+    "layer": "IO",
+    "x": 474,
+    "y": 280
+  },
+  {
+    "id": "82",
+    "name": "IOT11A",
+    "num": 82,
+    "bank": "IOT11",
+    "side": "TOP",
+    "kind": "io",
+    "special": [],
+    "layer": "IO",
+    "x": 457,
+    "y": 280
+  },
+  {
+    "id": "83",
+    "name": "IOT10B",
+    "num": 83,
+    "bank": "IOT10",
+    "side": "TOP",
+    "kind": "io",
+    "special": [],
+    "layer": "IO",
+    "x": 441,
+    "y": 280
+  },
+  {
+    "id": "84",
+    "name": "IOT10A",
+    "num": 84,
+    "bank": "IOT10",
+    "side": "TOP",
+    "kind": "io",
+    "special": [],
+    "layer": "IO",
+    "x": 423,
+    "y": 280
+  },
+  {
+    "id": "85",
+    "name": "IOT8B",
+    "num": 85,
+    "bank": "IOT8B",
+    "side": "TOP",
+    "kind": "io",
+    "special": [],
+    "layer": "IO",
+    "x": 407,
+    "y": 280
+  },
+  {
+    "id": "86",
+    "name": "IOT8A",
+    "num": 86,
+    "bank": "IOT8A",
+    "side": "TOP",
+    "kind": "io",
+    "special": [],
+    "layer": "IO",
+    "x": 389,
+    "y": 280
+  },
+  {
+    "id": "63",
+    "name": "IOR5A",
+    "num": 63,
+    "bank": "IOR5A",
+    "side": "TOP",
+    "kind": "io",
+    "special": [],
+    "layer": "IO",
+    "x": 370,
+    "y": 280
+  },
+  {
+    "id": "69",
+    "name": "IOT42A",
+    "num": 69,
+    "bank": "IOT42",
+    "side": "BOTTOM",
+    "kind": "io",
+    "special": [
+      "HDMI_CK_P"
+    ],
+    "layer": "HDMI",
+    "x": 759,
+    "y": 430
+  },
+  {
+    "id": "68",
+    "name": "IOT42B",
+    "num": 68,
+    "bank": "IOT42",
+    "side": "BOTTOM",
+    "kind": "io",
+    "special": [
+      "HDMI_CK_N"
+    ],
+    "layer": "HDMI",
+    "x": 743,
+    "y": 430
+  },
+  {
+    "id": "57",
+    "name": "IOR13A",
+    "num": 57,
+    "bank": "IOR13",
+    "side": "BOTTOM",
+    "kind": "io",
+    "special": [],
+    "layer": "IO",
+    "x": 727,
+    "y": 430
+  },
+  {
+    "id": "56",
+    "name": "IOR14A",
+    "num": 56,
+    "bank": "IOR14",
+    "side": "BOTTOM",
+    "kind": "io",
+    "special": [],
+    "layer": "IO",
+    "x": 708,
+    "y": 430
+  },
+  {
+    "id": "55",
+    "name": "IOR14B",
+    "num": 55,
+    "bank": "IOR14",
+    "side": "BOTTOM",
+    "kind": "io",
+    "special": [],
+    "layer": "IO",
+    "x": 693,
+    "y": 430
+  },
+  {
+    "id": "54",
+    "name": "IOR15A",
+    "num": 54,
+    "bank": "IOR15",
+    "side": "BOTTOM",
+    "kind": "io",
+    "special": [],
+    "layer": "IO",
+    "x": 676,
+    "y": 430
+  },
+  {
+    "id": "53",
+    "name": "IOR15B",
+    "num": 53,
+    "bank": "IOR15",
+    "side": "BOTTOM",
+    "kind": "io",
+    "special": [],
+    "layer": "IO",
+    "x": 660,
+    "y": 430
+  },
+  {
+    "id": "51",
+    "name": "IOR17B",
+    "num": 51,
+    "bank": "IOR17",
+    "side": "BOTTOM",
+    "kind": "io",
+    "special": [],
+    "layer": "IO",
+    "x": 642,
+    "y": 430
+  },
+  {
+    "id": "42",
+    "name": "IOB41B",
+    "num": 42,
+    "bank": "IOB41",
+    "side": "BOTTOM",
+    "kind": "io",
+    "special": [],
+    "layer": "IO",
+    "x": 626,
+    "y": 430
+  },
+  {
+    "id": "41",
+    "name": "IOB41A",
+    "num": 41,
+    "bank": "IOB41",
+    "side": "BOTTOM",
+    "kind": "io",
+    "special": [],
+    "layer": "IO",
+    "x": 610,
+    "y": 430
+  },
+  {
+    "id": "35",
+    "name": "IOB29A",
+    "num": 35,
+    "bank": "IOB29",
+    "side": "BOTTOM",
+    "kind": "io",
+    "special": [],
+    "layer": "IO",
+    "x": 592,
+    "y": 430
+  },
+  {
+    "id": "40",
+    "name": "IOB33B",
+    "num": 40,
+    "bank": "IOB33",
+    "side": "BOTTOM",
+    "kind": "io",
+    "special": [],
+    "layer": "IO",
+    "x": 575,
+    "y": 430
+  },
+  {
+    "id": "34",
+    "name": "IOB23B",
+    "num": 34,
+    "bank": "IOB23",
+    "side": "BOTTOM",
+    "kind": "io",
+    "special": [],
+    "layer": "IO",
+    "x": 558,
+    "y": 430
+  },
+  {
+    "id": "33",
+    "name": "IOB23A",
+    "num": 33,
+    "bank": "IOB23",
+    "side": "BOTTOM",
+    "kind": "io",
+    "special": [],
+    "layer": "IO",
+    "x": 542,
+    "y": 430
+  },
+  {
+    "id": "30",
+    "name": "IOB13B",
+    "num": 30,
+    "bank": "IOB13",
+    "side": "BOTTOM",
+    "kind": "io",
+    "special": [],
+    "layer": "IO",
+    "x": 525,
+    "y": 430
+  },
+  {
+    "id": "29",
+    "name": "IOB13A",
+    "num": 29,
+    "bank": "IOB13",
+    "side": "BOTTOM",
+    "kind": "io",
+    "special": [],
+    "layer": "IO",
+    "x": 509,
+    "y": 430
+  },
+  {
+    "id": "28",
+    "name": "IOB11B",
+    "num": 28,
+    "bank": "IOB11",
+    "side": "BOTTOM",
+    "kind": "io",
+    "special": [],
+    "layer": "IO",
+    "x": 491,
+    "y": 430
+  },
+  {
+    "id": "27",
+    "name": "IOB11A",
+    "num": 27,
+    "bank": "IOB11",
+    "side": "BOTTOM",
+    "kind": "io",
+    "special": [],
+    "layer": "IO",
+    "x": 474,
+    "y": 430
+  },
+  {
+    "id": "26",
+    "name": "IOB8B",
+    "num": 26,
+    "bank": "IOB8B",
+    "side": "BOTTOM",
+    "kind": "io",
+    "special": [],
+    "layer": "IO",
+    "x": 457,
+    "y": 430
+  },
+  {
+    "id": "25",
+    "name": "IOB8A",
+    "num": 25,
+    "bank": "IOB8A",
+    "side": "BOTTOM",
+    "kind": "io",
+    "special": [],
+    "layer": "IO",
+    "x": 441,
+    "y": 430
+  },
+  {
+    "id": "39",
+    "name": "IOB33A",
+    "num": 39,
+    "bank": "IOB33",
+    "side": "BOTTOM",
+    "kind": "io",
+    "special": [
+      "TF_MISO"
+    ],
+    "layer": "SD",
+    "x": 423,
+    "y": 430
+  },
+  {
+    "id": "36",
+    "name": "IOB29B",
+    "num": 36,
+    "bank": "IOB29",
+    "side": "BOTTOM",
+    "kind": "io",
+    "special": [
+      "TF_SCLK"
+    ],
+    "layer": "SD",
+    "x": 407,
+    "y": 430
+  },
+  {
+    "id": "37",
+    "name": "IOB31A",
+    "num": 37,
+    "bank": "IOB31",
+    "side": "BOTTOM",
+    "kind": "io",
+    "special": [
+      "TF_MOSI"
+    ],
+    "layer": "SD",
+    "x": 390,
+    "y": 430
+  },
+  {
+    "id": "38",
+    "name": "IOB31B",
+    "num": 38,
+    "bank": "IOB31",
+    "side": "BOTTOM",
+    "kind": "io",
+    "special": [
+      "TF_CS"
+    ],
+    "layer": "SD",
+    "x": 371,
+    "y": 430
   }
 ]
