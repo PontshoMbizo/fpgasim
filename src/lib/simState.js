@@ -1,67 +1,73 @@
 "use client";
 import React, { createContext, useContext, useMemo, useState } from "react";
 import PINS from "../data/pins.json";
+import { parseVCD, toModel } from "./vcd";
 
-// Single source of truth for the mock simulation, shared by the Hardware and
-// Waveforms tabs. When real iverilog WASM lands, only this seed + the worker
-// change — the UI keeps reading `signals` and `pinStates` the same way.
+// Single source of truth for the simulation, shared by the Hardware and Waveforms
+// tabs. Signals now live in a canonical model produced by the VCD parser, so when
+// real iverilog WASM lands only the worker's VCD output changes — the UI keeps
+// reading `signals` and `pinStates` the same way.
 
-export const TIME_MAX = 820; // ns shown on the timeline
 const CLK_PERIOD = 30; // ns
+const SEED_END = 820; // ns of the demo timeline
+export const PX_PER_NS = 1; // time -> pixel scale for the waveform canvas
 
-// Mirrors the example design in EditorPane.js (clk, btn1, btn2, leds, counter).
-export const SIGNALS = [
-  { id: 1, name: "clk", type: "wire", dir: "I", kind: "clock", period: CLK_PERIOD },
-  {
-    id: 2,
-    name: "btn1",
-    type: "wire",
-    dir: "I",
-    kind: "bit",
-    changes: [{ x: 0, v: "1" }, { x: 200, v: "0" }, { x: 280, v: "1" }],
-  },
-  {
-    id: 3,
-    name: "btn2",
-    type: "wire",
-    dir: "I",
-    kind: "bit",
-    changes: [{ x: 0, v: "1" }, { x: 520, v: "0" }, { x: 600, v: "1" }],
-  },
-  {
-    id: 4,
-    name: "leds[5:0]",
-    type: "reg",
-    dir: "O",
-    kind: "bus",
-    width: 6,
-    changes: [
-      { x: 0, v: "00" },
-      { x: 200, v: "3F" },
-      { x: 400, v: "15" },
-      { x: 520, v: "00" },
-      { x: 680, v: "2A" },
-    ],
-  },
-  {
-    id: 5,
-    name: "counter[24:19]",
-    type: "reg",
-    dir: "",
-    kind: "bus",
-    width: 6,
-    changes: [
-      { x: 0, v: "01" },
-      { x: 120, v: "08" },
-      { x: 300, v: "1F" },
-      { x: 520, v: "2A" },
-      { x: 700, v: "15" },
-    ],
-  },
-];
+// --- Seed design (mirrors EditorPane.js) expressed as a VCD string so the parser
+// is exercised on the default path. Buses are given as hex per change. ----------
+const hexToBits = (hex, width) =>
+  parseInt(hex, 16).toString(2).padStart(width, "0");
 
-// Net -> physical pin id, derived from each pin's `special` tags in pins.json so
-// the pin-mapper tool fully controls the mapping. Tags: CLK, BTN1, BTN2, LED0..N.
+function buildSeedVcd() {
+  const vars = [
+    { id: "!", type: "wire", width: 1, name: "clk", dir: "I" },
+    { id: "#", type: "wire", width: 1, name: "btn1", dir: "I" },
+    { id: "$", type: "wire", width: 1, name: "btn2", dir: "I" },
+    { id: "%", type: "reg", width: 6, name: "leds[5:0]", dir: "O" },
+    { id: "&", type: "reg", width: 6, name: "counter[24:19]", dir: "" },
+  ];
+
+  // Collect (t -> [token]) events.
+  const events = {};
+  const add = (t, token) => (events[t] = events[t] || []).push(token);
+
+  // Clock toggles every half period.
+  for (let t = 0, hi = 0; t <= SEED_END; t += CLK_PERIOD / 2, hi ^= 1) add(t, `${hi}!`);
+
+  const bit = [
+    { id: "#", changes: [[0, "1"], [200, "0"], [280, "1"]] },
+    { id: "$", changes: [[0, "1"], [520, "0"], [600, "1"]] },
+  ];
+  for (const s of bit) for (const [t, v] of s.changes) add(t, `${v}${s.id}`);
+
+  const bus = [
+    { id: "%", changes: [[0, "00"], [200, "3F"], [400, "15"], [520, "00"], [680, "2A"]] },
+    { id: "&", changes: [[0, "01"], [120, "08"], [300, "1F"], [520, "2A"], [700, "15"]] },
+  ];
+  for (const s of bus)
+    for (const [t, hex] of s.changes) add(t, `b${hexToBits(hex, 6)} ${s.id}`);
+
+  let vcd = "$timescale 1ns $end\n$scope module top $end\n";
+  for (const v of vars) vcd += `$var ${v.type} ${v.width} ${v.id} ${v.name} $end\n`;
+  vcd += "$upscope $end\n$enddefinitions $end\n";
+  for (const t of Object.keys(events).map(Number).sort((a, b) => a - b)) {
+    vcd += `#${t}\n${events[t].join("\n")}\n`;
+  }
+  return { vcd, dirByName: Object.fromEntries(vars.map((v) => [v.name, v.dir])) };
+}
+
+// Direction (I/O) isn't carried in VCD; re-apply it from the design metadata so the
+// signal list keeps its Dir column.
+function applyDirs(model, dirByName) {
+  if (!dirByName) return model;
+  for (const s of model.signals) if (dirByName[s.name] != null) s.dir = dirByName[s.name];
+  return model;
+}
+
+const seed = buildSeedVcd();
+export const DEFAULT_MODEL = applyDirs(parseVCD(seed.vcd), seed.dirByName);
+
+// Net -> physical pin id, derived from each pin's `special` tags in pins.json so the
+// pin-mapper tool fully controls the mapping. Tags: CLK, BTN1, BTN2, LED0..N.
 export const PIN_ASSIGNMENTS = (() => {
   const map = {};
   for (const pin of PINS) {
@@ -78,14 +84,11 @@ export const PIN_ASSIGNMENTS = (() => {
   return map;
 })();
 
-// Returns the raw value string of a signal at time `t`.
+// Returns the raw value string of a signal at time `t` (ns).
 function valueAt(sig, t) {
-  if (sig.kind === "clock") {
-    return t % sig.period >= sig.period / 2 ? "1" : "0";
-  }
   let v = sig.changes[0].v;
   for (const c of sig.changes) {
-    if (c.x <= t) v = c.v;
+    if (c.t <= t) v = c.v;
     else break;
   }
   return v;
@@ -93,32 +96,41 @@ function valueAt(sig, t) {
 
 // Extracts bit `index` (0 = LSB) from a hex value string.
 function bitOf(hex, index) {
+  if (/[^0-9a-f]/i.test(hex)) return "X"; // x/z or non-hex
   const n = parseInt(hex, 16);
   if (Number.isNaN(n)) return "X";
   return (n >> index) & 1 ? "HIGH" : "LOW";
 }
 
-// Builds the { pinId: 'HIGH'|'LOW'|'X'|'Z' } map for a given time cursor.
-export function computePinStates(t) {
-  const byName = Object.fromEntries(SIGNALS.map((s) => [s.name, s]));
+// Map a scalar value char to a pin state.
+function scalarState(v) {
+  if (v === "1") return "HIGH";
+  if (v === "0") return "LOW";
+  if (v === "z") return "Z";
+  return "X";
+}
+
+// Find the signal backing a net base name (scalar `clk` or bus `leds[5:0]`).
+function findSignal(byName, base) {
+  if (byName[base]) return byName[base];
+  return Object.values(byName).find((s) => s.name.startsWith(base + "["));
+}
+
+// Builds the { pinId: 'HIGH'|'LOW'|'X'|'Z' } map for a given time cursor, driven
+// entirely by PIN_ASSIGNMENTS + the current model so it works for any design.
+export function computePinStates(model, t) {
+  const byName = Object.fromEntries(model.signals.map((s) => [s.name, s]));
   const states = {};
 
-  const setBit = (sigName, bit, pinId) => {
-    const sig = byName[sigName];
-    if (!sig || !pinId) return;
-    states[pinId] = bitOf(valueAt(sig, t), bit);
-  };
-
-  setBit("leds[5:0]", 0, PIN_ASSIGNMENTS["leds[0]"]);
-  setBit("leds[5:0]", 1, PIN_ASSIGNMENTS["leds[1]"]);
-  setBit("leds[5:0]", 2, PIN_ASSIGNMENTS["leds[2]"]);
-  setBit("leds[5:0]", 3, PIN_ASSIGNMENTS["leds[3]"]);
-  setBit("leds[5:0]", 4, PIN_ASSIGNMENTS["leds[4]"]);
-  setBit("leds[5:0]", 5, PIN_ASSIGNMENTS["leds[5]"]);
-
-  states[PIN_ASSIGNMENTS.clk] = valueAt(byName.clk, t) === "1" ? "HIGH" : "LOW";
-  states[PIN_ASSIGNMENTS.btn1] = valueAt(byName.btn1, t) === "1" ? "HIGH" : "LOW";
-  states[PIN_ASSIGNMENTS.btn2] = valueAt(byName.btn2, t) === "1" ? "HIGH" : "LOW";
+  for (const [net, pinId] of Object.entries(PIN_ASSIGNMENTS)) {
+    if (!pinId) continue;
+    const m = /^(.+?)\[(\d+)\]$/.exec(net); // e.g. "leds[3]"
+    const base = m ? m[1] : net;
+    const sig = findSignal(byName, base);
+    if (!sig) continue;
+    const v = valueAt(sig, t);
+    states[pinId] = m && sig.kind === "bus" ? bitOf(v, parseInt(m[2], 10)) : scalarState(v);
+  }
 
   return states;
 }
@@ -126,11 +138,25 @@ export function computePinStates(t) {
 const SimContext = createContext(null);
 
 export function SimProvider({ children }) {
+  const [model, setModelState] = useState(DEFAULT_MODEL);
   const [timeCursor, setTimeCursor] = useState(550);
-  const pinStates = useMemo(() => computePinStates(timeCursor), [timeCursor]);
+
+  // Accepts a raw VCD string, a full model, or a bare signals array.
+  const setModel = (input) => setModelState(toModel(input));
+
+  const pinStates = useMemo(() => computePinStates(model, timeCursor), [model, timeCursor]);
   const value = useMemo(
-    () => ({ signals: SIGNALS, timeCursor, setTimeCursor, pinStates, timeMax: TIME_MAX }),
-    [timeCursor, pinStates]
+    () => ({
+      model,
+      setModel,
+      signals: model.signals,
+      timeCursor,
+      setTimeCursor,
+      pinStates,
+      timeMax: model.timeMax,
+      pxPerNs: PX_PER_NS,
+    }),
+    [model, timeCursor, pinStates]
   );
   return <SimContext.Provider value={value}>{children}</SimContext.Provider>;
 }

@@ -1,8 +1,9 @@
 "use client";
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Editor from '@monaco-editor/react';
-import { Code2, Maximize2, List, Bookmark, Brackets, RotateCcw, Lock, ChevronDown } from 'lucide-react';
+import { Code2, Maximize2, List, Bookmark, Brackets, RotateCcw, Lock, ChevronDown, Play, Loader } from 'lucide-react';
 import PaneHeader from './ui/PaneHeader';
+import { useSim } from '../lib/simState';
 
 export default function EditorPane({ isFullscreen, onFullscreen, isCollapsed, onCollapse }) {
   const [code, setCode] = useState(`module top(
@@ -29,6 +30,32 @@ export default function EditorPane({ isFullscreen, onFullscreen, isCollapsed, on
 
 endmodule
 `);
+
+  const { setModel } = useSim();
+  const [running, setRunning] = useState(false);
+  const workerRef = useRef(null);
+
+  // Spin up the simulator worker once. On SIMULATION_DONE it returns a VCD which
+  // we feed straight into the shared model — both tabs update from it. The WASM
+  // engine swap (#4) lives entirely inside the worker.
+  useEffect(() => {
+    const worker = new Worker(new URL('../simulator.worker.js', import.meta.url));
+    worker.onmessage = (e) => {
+      if (e.data?.type === 'SIMULATION_DONE') {
+        setModel(e.data.vcd);
+        setRunning(false);
+      }
+    };
+    worker.postMessage({ type: 'INIT' });
+    workerRef.current = worker;
+    return () => worker.terminate();
+  }, [setModel]);
+
+  const handleRun = () => {
+    if (running) return;
+    setRunning(true);
+    workerRef.current?.postMessage({ type: 'SIMULATE', payload: { code } });
+  };
 
   return (
     <div className="w-full h-full flex flex-col bg-panel rounded-lg border border-edge overflow-hidden font-sans shadow-xl">
@@ -57,6 +84,15 @@ endmodule
           </div>
         </div>
         <div className="flex items-center gap-3 text-text-muted">
+          <button
+            onClick={handleRun}
+            disabled={running}
+            className="flex items-center gap-1.5 bg-accent/90 hover:bg-accent text-white px-2.5 py-1 rounded text-[12px] font-medium transition-colors disabled:opacity-60"
+            title="Run simulation"
+          >
+            {running ? <Loader size={13} className="animate-spin" /> : <Play size={13} />}
+            {running ? 'Running' : 'Run'}
+          </button>
           <button className="hover:text-text-primary transition-colors" title="Format">
             <List size={15} />
           </button>
