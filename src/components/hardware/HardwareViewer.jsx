@@ -2,10 +2,6 @@
 import React, { useState, useMemo } from "react";
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 
-// Data
-import PINS from "../../data/pins.json";
-import COMPONENTS from "../../data/components.json";
-
 // Components
 import BoardImage from "./BoardImage";
 import ComponentOverlay from "./ComponentOverlay";
@@ -16,10 +12,7 @@ import Legend from "./Legend";
 
 import { useSim } from "../../lib/simState";
 
-const BOARD_WIDTH = 1200;
-const BOARD_HEIGHT = 700;
-
-export default function TangNanoViewer() {
+export default function HardwareViewer({ board }) {
   const [search, setSearch] = useState("");
   const [hoveredPin, setHoveredPin] = useState(null);
   const [hoveredComponent, setHoveredComponent] = useState(null);
@@ -28,10 +21,15 @@ export default function TangNanoViewer() {
 
   const { pinStates } = useSim();
 
+  const PINS = board?.pins || [];
+  const COMPONENTS = board?.components || [];
+  const BOARD_WIDTH = board?.width || 1200;
+  const BOARD_HEIGHT = board?.height || 700;
+
   // Distinct layers present in the data drive the filter dropdown.
   const layers = useMemo(
     () => ["ALL", ...Array.from(new Set(PINS.map((p) => p.layer))).sort()],
-    []
+    [PINS]
   );
 
   const filteredPins = useMemo(() => {
@@ -45,7 +43,7 @@ export default function TangNanoViewer() {
       const layerMatch = layer === "ALL" || pin.layer === layer;
       return searchMatch && layerMatch;
     });
-  }, [search, layer]);
+  }, [search, layer, PINS]);
 
   const highlightedNet = hoveredPin ? hoveredPin.special : [];
 

@@ -13,11 +13,11 @@ export const PX_PER_NS = 1; // time -> pixel scale for the waveform canvas
 // The app starts with an empty waveform view — signals appear only after a run.
 export const DEFAULT_MODEL = { timescale: { value: 1, unit: "ns" }, timeMax: 0, signals: [] };
 
-// Net -> physical pin id, derived from each pin's `special` tags in pins.json so the
+// Net -> physical pin id, derived from each pin's `special` tags so the
 // pin-mapper tool fully controls the mapping. Tags: CLK, BTN1, BTN2, LED0..N.
-export const PIN_ASSIGNMENTS = (() => {
+export function computePinAssignments(pins = []) {
   const map = {};
-  for (const pin of PINS) {
+  for (const pin of pins) {
     for (const tag of pin.special || []) {
       if (tag === "CLK") map.clk = pin.id;
       else if (tag === "BTN1") map.btn1 = pin.id;
@@ -29,7 +29,7 @@ export const PIN_ASSIGNMENTS = (() => {
     }
   }
   return map;
-})();
+}
 
 // Returns the raw value string of a signal at time `t` (ns).
 function valueAt(sig, t) {
@@ -71,10 +71,10 @@ function findSignal(signals, base) {
 
 // Builds the { pinId: 'HIGH'|'LOW'|'X'|'Z' } map for a given time cursor, driven
 // entirely by PIN_ASSIGNMENTS + the current model so it works for any design.
-export function computePinStates(model, t) {
+export function computePinStates(model, t, pinAssignments = {}) {
   const states = {};
 
-  for (const [net, pinId] of Object.entries(PIN_ASSIGNMENTS)) {
+  for (const [net, pinId] of Object.entries(pinAssignments)) {
     if (!pinId) continue;
     const m = /^(.+?)\[(\d+)\]$/.exec(net); // e.g. "leds[3]"
     const base = m ? m[1] : net;
@@ -89,7 +89,7 @@ export function computePinStates(model, t) {
 
 const SimContext = createContext(null);
 
-export function SimProvider({ children }) {
+export function SimProvider({ children, board }) {
   const [model, setModelState] = useState(DEFAULT_MODEL);
   const [timeCursor, setTimeCursor] = useState(0);
 
@@ -101,7 +101,8 @@ export function SimProvider({ children }) {
     return m;
   };
 
-  const pinStates = useMemo(() => computePinStates(model, timeCursor), [model, timeCursor]);
+  const pinAssignments = useMemo(() => computePinAssignments(board?.pins), [board?.pins]);
+  const pinStates = useMemo(() => computePinStates(model, timeCursor, pinAssignments), [model, timeCursor, pinAssignments]);
   const value = useMemo(
     () => ({
       model,
@@ -112,8 +113,9 @@ export function SimProvider({ children }) {
       pinStates,
       timeMax: model.timeMax,
       pxPerNs: PX_PER_NS,
+      board
     }),
-    [model, timeCursor, pinStates]
+    [model, timeCursor, pinStates, board]
   );
   return <SimContext.Provider value={value}>{children}</SimContext.Provider>;
 }

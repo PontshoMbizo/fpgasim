@@ -1,11 +1,11 @@
 "use client";
 import React, { useState } from 'react';
 import { Cpu, Activity } from 'lucide-react';
-import TangNanoViewer from './hardware/TangNanoViewer';
+import HardwareViewer from './hardware/HardwareViewer';
 import SignalGeneratorPane from './SignalGeneratorPane';
 import PaneHeader, { TabButton } from './ui/PaneHeader';
 
-export default function SimulationPane({ isFullscreen, onFullscreen, isCollapsed, onCollapse }) {
+export default function SimulationPane({ board, isFullscreen, onFullscreen, isCollapsed, onCollapse }) {
   const [activeTab, setActiveTab] = useState('hardware');
 
   return (
@@ -26,7 +26,7 @@ export default function SimulationPane({ isFullscreen, onFullscreen, isCollapsed
       <div className="flex-1 min-h-0 relative bg-panel flex flex-col overflow-hidden">
         {activeTab === 'hardware' ? (
           <div className="flex-1 overflow-hidden relative">
-            <TangNanoViewer />
+            <HardwareViewer board={board} />
           </div>
         ) : (
           <div className="flex-1 overflow-auto p-4">

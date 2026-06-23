@@ -14,14 +14,14 @@ export default function PinOverlay({ pin, state, isHovered, isHighlighted, onHov
 
       {/* net highlight ring */}
       {isHighlighted && (
-        <circle cx={pin.x} cy={pin.y} r={16} fill={COLORS.accent} opacity="0.25">
-          <animate attributeName="r" values="10;16;10" dur="1.2s" repeatCount="indefinite" />
+        <circle cx={pin.x} cy={pin.y} r={10} fill={COLORS.accent} opacity="0.25">
+          <animate attributeName="r" values="6;10;6" dur="1.2s" repeatCount="indefinite" />
         </circle>
       )}
 
       {/* pulse on driven-HIGH pins */}
       {state === 'HIGH' && (
-        <circle cx={pin.x} cy={pin.y} r={10} fill={COLORS.sigHigh} opacity="0.35">
+        <circle cx={pin.x} cy={pin.y} r={6} fill={COLORS.sigHigh} opacity="0.35">
           <animate attributeName="opacity" values="0.35;0.05;0.35" dur="1s" repeatCount="indefinite" />
         </circle>
       )}
@@ -29,10 +29,10 @@ export default function PinOverlay({ pin, state, isHovered, isHighlighted, onHov
       <circle
         cx={pin.x}
         cy={pin.y}
-        r="8"
+        r="5"
         fill={fill}
         stroke={stroke}
-        strokeWidth="2"
+        strokeWidth="1.5"
       />
     </g>
   );

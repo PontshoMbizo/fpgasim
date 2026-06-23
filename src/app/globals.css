@@ -43,3 +43,22 @@ body {
   color: var(--color-text-secondary);
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
 }
+
+/* Custom scrollbar styling */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: var(--color-panel);
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--color-edge);
+  border-radius: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--color-hover);
+}

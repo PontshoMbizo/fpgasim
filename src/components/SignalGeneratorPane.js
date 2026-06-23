@@ -1,5 +1,5 @@
 "use client";
-import React from 'react';
+import React, { useState } from 'react';
 import { useSim } from '../lib/simState';
 import { COLORS } from '../lib/theme';
 
@@ -8,6 +8,7 @@ import { COLORS } from '../lib/theme';
 // derived here via `pxPerNs`.
 export default function SignalGeneratorPane() {
   const { signals: allSignals, timeCursor, setTimeCursor, timeMax, pxPerNs } = useSim();
+  const [zoomLevel, setZoomLevel] = useState(1);
 
   // Real VCDs dump the same net under multiple scopes (tb.clk, tb.dut.clk) sharing
   // one id. Show one row per net, preferring the shallowest scope.
@@ -20,12 +21,18 @@ export default function SignalGeneratorPane() {
     return [...byId.values()];
   }, [allSignals]);
 
-  const px = (t) => t * pxPerNs;
+  const px = (t) => t * pxPerNs * zoomLevel;
   const canvasW = Math.max(px(timeMax) + 100, 400); // a little trailing space
   const TICK_NS = 100;
   const GRID_NS = 50;
   const tickCount = Math.floor(timeMax / TICK_NS) + 1;
   const gridCount = Math.floor(timeMax / GRID_NS) + 1;
+
+  const handleWheel = (e) => {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? 0.9 : 1.1;
+    setZoomLevel((z) => Math.max(0.5, Math.min(4, z * delta)));
+  };
 
   const renderWaveform = (sig) => {
     if (sig.kind === 'bit') {
@@ -61,7 +68,7 @@ export default function SignalGeneratorPane() {
   const handleSeek = (e) => {
     const rect = e.currentTarget.getBoundingClientRect();
     const x = e.clientX - rect.left + e.currentTarget.scrollLeft;
-    setTimeCursor(Math.max(0, Math.min(Math.round(x / pxPerNs), timeMax)));
+    setTimeCursor(Math.max(0, Math.min(Math.round(x / (pxPerNs * zoomLevel)), timeMax)));
   };
 
   return (
@@ -78,7 +85,7 @@ export default function SignalGeneratorPane() {
         </div>
 
         {/* List */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto custom-scrollbar">
           {signals.map((sig) => (
             <div key={sig.id} className="flex items-center px-1 text-[12px] h-[18px] hover:bg-hover cursor-pointer">
               <div className="w-8 text-text-muted font-mono text-[10px]">{sig.dir}</div>
@@ -92,20 +99,11 @@ export default function SignalGeneratorPane() {
       </div>
 
       {/* Right Pane: Waveforms */}
-      <div className="flex-1 h-full bg-panel relative overflow-auto custom-scrollbar" onClick={handleSeek}>
-
-        {/* Timeline Header */}
-        <div className="h-6 w-full sticky top-0 z-20 flex bg-panel border-b border-edge">
-          <svg width={canvasW} height="24">
-            {[...Array(tickCount)].map((_, i) => (
-              <g key={i}>
-                <line x1={px(i * TICK_NS)} y1="18" x2={px(i * TICK_NS)} y2="24" stroke={COLORS.textMuted} strokeWidth="1" />
-                <text x={px(i * TICK_NS) + 5} y="15" fill={COLORS.textMuted} fontSize="10" fontFamily="monospace">{i * TICK_NS} ns</text>
-              </g>
-            ))}
-          </svg>
-        </div>
-
+      <div 
+        className="flex-1 h-full bg-panel relative overflow-auto custom-scrollbar"
+        onClick={handleSeek}
+        onWheel={handleWheel}
+      >
         {signals.length === 0 ? (
           /* Empty state — no simulation has run yet. */
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
@@ -115,31 +113,46 @@ export default function SignalGeneratorPane() {
             </div>
           </div>
         ) : (
-          /* Waveform Area */
-          <div className="relative h-[800px]" style={{ width: canvasW }}>
-            {/* Vertical Grid */}
-            <svg width="100%" height="100%" className="absolute inset-0 pointer-events-none">
-              {[...Array(gridCount)].map((_, i) => (
-                <line key={i} x1={px(i * GRID_NS)} y1="0" x2={px(i * GRID_NS)} y2="800" stroke={COLORS.edge} strokeWidth="1" strokeDasharray="2,2" opacity="0.5" />
-              ))}
-              {/* Shared cursor line */}
-              <line x1={px(timeCursor)} y1="0" x2={px(timeCursor)} y2="800" stroke={COLORS.danger} strokeWidth="1" />
-            </svg>
-
-            {/* Traces */}
-            <div className="absolute inset-0 flex flex-col pt-[2px]">
-              {signals.map((sig) => (
-                <div key={sig.id} className="h-[18px] relative flex items-center">
-                  <svg width={canvasW} height="18" className="absolute top-0 left-0">
-                    <line x1="0" y1="18" x2={canvasW} y2="18" stroke={COLORS.hover} strokeWidth="1" />
-                    {renderWaveform(sig)}
-                  </svg>
-                </div>
-              ))}
+          <div className="relative flex flex-col" style={{ width: canvasW, minHeight: '100%' }}>
+            
+            {/* Timeline Header (Sticky) */}
+            <div className="h-6 sticky top-0 z-20 bg-panel border-b border-edge shrink-0">
+              <svg width="100%" height="24" className="pointer-events-none">
+                {[...Array(tickCount)].map((_, i) => (
+                  <g key={i}>
+                    <line x1={px(i * TICK_NS)} y1="18" x2={px(i * TICK_NS)} y2="24" stroke={COLORS.textMuted} strokeWidth="1" />
+                    <text x={px(i * TICK_NS) + 5} y="15" fill={COLORS.textMuted} fontSize="10" fontFamily="monospace">{i * TICK_NS} ns</text>
+                  </g>
+                ))}
+                {/* Header Cursor Segment */}
+                <line x1={px(timeCursor)} y1="0" x2={px(timeCursor)} y2="24" stroke={COLORS.danger} strokeWidth="1.2" />
+              </svg>
             </div>
+
+            {/* Waveform Area */}
+            <div className="flex-1 relative" style={{ height: Math.max(0, signals.length * 18 + 16) }}>
+              <svg width="100%" height="100%" className="absolute inset-0 pointer-events-none z-10">
+                {[...Array(gridCount)].map((_, i) => (
+                  <line key={i} x1={px(i * GRID_NS)} y1="0" x2={px(i * GRID_NS)} y2="100%" stroke={COLORS.edge} strokeWidth="1" strokeDasharray="2,2" opacity="0.5" />
+                ))}
+                {/* Body Cursor Segment */}
+                <line x1={px(timeCursor)} y1="0" x2={px(timeCursor)} y2="100%" stroke={COLORS.danger} strokeWidth="1.2" />
+              </svg>
+
+              <div className="absolute inset-0 flex flex-col pt-[2px]">
+                {signals.map((sig) => (
+                  <div key={sig.id} className="h-[18px] relative flex items-center">
+                    <svg width="100%" height="18" className="absolute top-0 left-0">
+                      <line x1="0" y1="18" x2="100%" y2="18" stroke={COLORS.hover} strokeWidth="1" />
+                      {renderWaveform(sig)}
+                    </svg>
+                  </div>
+                ))}
+              </div>
+            </div>
+
           </div>
         )}
-
       </div>
 
     </div>

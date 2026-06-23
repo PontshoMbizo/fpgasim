@@ -4,6 +4,8 @@ import EditorPane from '@/components/EditorPane';
 import SimulationPane from '@/components/SimulationPane';
 import { SimProvider } from '@/lib/simState';
 
+import { TangNano9kBoard } from '@/boards/tangnano9k';
+
 const DEFAULT_SPLIT = 60;
 
 export default function Home() {
@@ -56,7 +58,7 @@ export default function Home() {
     setFullscreen((cur) => (cur === pane ? null : pane));
 
   return (
-    <SimProvider>
+    <SimProvider board={TangNano9kBoard}>
       <div className="h-screen w-full flex flex-col bg-base text-text-primary overflow-hidden font-sans selection:bg-focus/30">
 
         {/* Top Pane: Editor */}
@@ -92,6 +94,7 @@ export default function Home() {
           hidden={fullscreen === 'editor'}
         >
           <SimulationPane
+            board={TangNano9kBoard}
             isFullscreen={fullscreen === 'sim'}
             onFullscreen={() => toggleFullscreen('sim')}
             isCollapsed={simCollapsed}
