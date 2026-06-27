@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import Editor from '@monaco-editor/react';
 import { Code2, Maximize2, List, SlidersHorizontal, Play, Loader } from 'lucide-react';
 import PaneHeader from './ui/PaneHeader';
@@ -31,10 +31,9 @@ export default function EditorPane({ templates, isFullscreen, onFullscreen, isCo
   const [status, setStatus] = useState(null); // { ok, text }
 
   const tabs = advanced ? ADVANCED_TABS : BASIC_TABS;
-  // When Advanced is switched off while viewing a hidden tab, fall back to Design.
-  useEffect(() => {
-    if (!advanced && activeTab !== 'design') setActiveTab('design');
-  }, [advanced, activeTab]);
+  // Effective tab: if Advanced is off, hidden tabs fall back to Design (derived, so no
+  // state-sync effect is needed).
+  const currentTab = tabs.includes(activeTab) ? activeTab : 'design';
 
   // Send the source to the sandboxed Icarus Verilog backend; on success the returned
   // VCD flows into the shared model and both tabs update. See /api/simulate.
@@ -99,7 +98,7 @@ export default function EditorPane({ templates, isFullscreen, onFullscreen, isCo
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`px-2.5 py-1 rounded transition-colors capitalize ${activeTab === tab ? 'bg-edge text-text-primary' : 'text-text-secondary hover:bg-edge/60'}`}
+              className={`px-2.5 py-1 rounded transition-colors capitalize ${currentTab === tab ? 'bg-edge text-text-primary' : 'text-text-secondary hover:bg-edge/60'}`}
             >
               {tab}
             </button>
@@ -158,14 +157,14 @@ export default function EditorPane({ templates, isFullscreen, onFullscreen, isCo
       <div className="flex-1 min-h-0 relative">
         <Editor
           height="100%"
-          path={activeTab + '.v'}
-          defaultLanguage={activeTab === 'cst' || activeTab === 'sdc' ? 'tcl' : 'verilog'}
+          path={currentTab + '.v'}
+          defaultLanguage={currentTab === 'cst' || currentTab === 'sdc' ? 'tcl' : 'verilog'}
           theme="vs-dark"
-          value={activeTab === 'design' ? code : activeTab === 'testbench' ? testbench : activeTab === 'cst' ? cst : sdc}
+          value={currentTab === 'design' ? code : currentTab === 'testbench' ? testbench : currentTab === 'cst' ? cst : sdc}
           onChange={(val) => {
-            if (activeTab === 'design') setCode(val ?? '');
-            else if (activeTab === 'testbench') setTestbench(val ?? '');
-            else if (activeTab === 'cst') setCst(val ?? '');
+            if (currentTab === 'design') setCode(val ?? '');
+            else if (currentTab === 'testbench') setTestbench(val ?? '');
+            else if (currentTab === 'cst') setCst(val ?? '');
             else setSdc(val ?? '');
           }}
           options={{

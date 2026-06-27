@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Save, RotateCcw, Trash2, Copy, Eraser, Cpu, MapPin, Tag, ZoomOut, AlignVerticalSpaceAround } from "lucide-react";
 import { LAYER_COLORS, COLORS } from "@/lib/theme";
 
@@ -30,6 +30,13 @@ export default function PinMapper() {
 
   const key = () => `k${uidRef.current++}`;
 
+  // Reset zoom and pan (stable identity — only calls state setters).
+  const resetZoom = useCallback(() => {
+    setZoom(1);
+    setPanX(0);
+    setPanY(0);
+  }, []);
+
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -39,7 +46,7 @@ export default function PinMapper() {
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
+  }, [resetZoom]);
 
   // Loads the saved data so you can continue a previous mapping.
   const load = async () => {
@@ -85,13 +92,6 @@ export default function PinMapper() {
     setPanX(centerX);
     setPanY(centerY);
     setZoom(targetZoom);
-  };
-
-  // Reset zoom and pan
-  const resetZoom = () => {
-    setZoom(1);
-    setPanX(0);
-    setPanY(0);
   };
 
   const focusOnPin = (pin) => {

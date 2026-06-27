@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Cpu, Activity, Monitor } from 'lucide-react';
 import HardwareViewer from './hardware/HardwareViewer';
 import SignalGeneratorPane from './SignalGeneratorPane';
@@ -13,10 +13,9 @@ export default function SimulationPane({ board, isFullscreen, onFullscreen, isCo
   const [activeTab, setActiveTab] = useState('hardware');
   const { peripheralOutputs, advanced } = useSim();
 
-  // HDMI/UART are Advanced-only views; fall back to Hardware when Advanced is off.
-  useEffect(() => {
-    if (!advanced && (activeTab === 'hdmi' || activeTab === 'uart')) setActiveTab('hardware');
-  }, [advanced, activeTab]);
+  // HDMI/UART are Advanced-only views; when Advanced is off they fall back to Hardware.
+  // Derived (not an effect) to avoid a state-sync render pass.
+  const currentTab = !advanced && (activeTab === 'hdmi' || activeTab === 'uart') ? 'hardware' : activeTab;
 
   return (
     <div className="w-full h-full flex flex-col bg-panel rounded-lg border border-edge overflow-hidden font-sans shadow-xl">
@@ -27,30 +26,30 @@ export default function SimulationPane({ board, isFullscreen, onFullscreen, isCo
         isCollapsed={isCollapsed}
         onCollapse={onCollapse}
       >
-        <TabButton icon={Cpu} label="Hardware" active={activeTab === 'hardware'} onClick={() => setActiveTab('hardware')} />
+        <TabButton icon={Cpu} label="Hardware" active={currentTab === 'hardware'} onClick={() => setActiveTab('hardware')} />
         <div className="w-[1px] h-4 bg-edge mx-1" />
-        <TabButton icon={Activity} label="Waveforms" active={activeTab === 'waveforms'} onClick={() => setActiveTab('waveforms')} />
+        <TabButton icon={Activity} label="Waveforms" active={currentTab === 'waveforms'} onClick={() => setActiveTab('waveforms')} />
         {advanced && (
           <>
             <div className="w-[1px] h-4 bg-edge mx-1" />
-            <TabButton icon={Monitor} label="HDMI" active={activeTab === 'hdmi'} onClick={() => setActiveTab('hdmi')} />
+            <TabButton icon={Monitor} label="HDMI" active={currentTab === 'hdmi'} onClick={() => setActiveTab('hdmi')} />
             <div className="w-[1px] h-4 bg-edge mx-1" />
-            <TabButton icon={Activity} label="UART Console" active={activeTab === 'uart'} onClick={() => setActiveTab('uart')} />
+            <TabButton icon={Activity} label="UART Console" active={currentTab === 'uart'} onClick={() => setActiveTab('uart')} />
           </>
         )}
       </PaneHeader>
 
       {/* Content Area */}
       <div className="flex-1 min-h-0 relative bg-panel flex flex-col overflow-hidden">
-        {activeTab === 'hardware' ? (
+        {currentTab === 'hardware' ? (
           <div className="flex-1 overflow-hidden relative">
             <HardwareViewer board={board} />
           </div>
-        ) : activeTab === 'waveforms' ? (
+        ) : currentTab === 'waveforms' ? (
           <div className="flex-1 overflow-auto p-4">
             <SignalGeneratorPane />
           </div>
-        ) : activeTab === 'hdmi' ? (
+        ) : currentTab === 'hdmi' ? (
           <HdmiPreview ppmBase64={peripheralOutputs?.ppm} />
         ) : (
           <UartConsole logs={peripheralOutputs?.uart} />
