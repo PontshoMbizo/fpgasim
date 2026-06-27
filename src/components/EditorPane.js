@@ -1,39 +1,40 @@
 "use client";
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Editor from '@monaco-editor/react';
-import { Code2, Maximize2, List, Bookmark, Brackets, RotateCcw, Lock, ChevronDown, Play, Loader } from 'lucide-react';
+import { Code2, Maximize2, List, SlidersHorizontal, Play, Loader } from 'lucide-react';
 import PaneHeader from './ui/PaneHeader';
 import { useSim } from '../lib/simState';
+import { DEFAULT_DESIGN, DEFAULT_TESTBENCH } from '../lib/templateDefaults';
 
-export default function EditorPane({ isFullscreen, onFullscreen, isCollapsed, onCollapse }) {
-  const [code, setCode] = useState(`module top(
-    input clk,
-    input btn1,
-    input btn2,
-    output reg [5:0] leds
-);
+// Editor tabs. "design" is always available; the rest are revealed by Advanced mode.
+const BASIC_TABS = ['design'];
+const ADVANCED_TABS = ['design', 'testbench', 'cst', 'sdc'];
 
-  // Simple clock divider for visual testing
-  reg [24:0] counter;
-  always @(posedge clk) begin
-    counter <= counter + 1;
-  end
+// `templates` (optional) seeds the editors — supplied by the server from the
+// disk-backed registry (src/lib/templates.js). Falls back to the built-in defaults so
+// EditorPane still works when used standalone (e.g. the library export in src/index.js).
+export default function EditorPane({ templates, isFullscreen, onFullscreen, isCollapsed, onCollapse }) {
+  const [code, setCode] = useState(templates?.design ?? DEFAULT_DESIGN);
 
-  always @(posedge clk) begin
-    if (!btn1)
-      leds <= 6'b111111;
-    else if (!btn2)
-      leds <= 6'b000000;
-    else
-      leds <= counter[24:19];
-  end
+  // Optional separate testbench. When non-empty it's sent alongside the design and
+  // used verbatim by the backend (auto-stimulus generation is skipped). It MUST call
+  // $dumpfile("out.vcd")/$dumpvars or the backend produces no waveform. Clear it to
+  // fall back to the auto-generated clock stimulus.
+  const [testbench, setTestbench] = useState(templates?.testbench ?? DEFAULT_TESTBENCH);
+  const [cst, setCst] = useState(templates?.cst ?? '');
+  const [sdc, setSdc] = useState(templates?.sdc ?? '');
+  const [activeTab, setActiveTab] = useState('design'); // 'design' | 'testbench' | 'cst' | 'sdc'
+  const [durationNs, setDurationNs] = useState(2000000); // 2ms default
 
-endmodule
-`);
-
-  const { setModel } = useSim();
+  const { setModel, setDiagnostics, setPeripheralOutputs, advanced, setAdvanced } = useSim();
   const [running, setRunning] = useState(false);
   const [status, setStatus] = useState(null); // { ok, text }
+
+  const tabs = advanced ? ADVANCED_TABS : BASIC_TABS;
+  // When Advanced is switched off while viewing a hidden tab, fall back to Design.
+  useEffect(() => {
+    if (!advanced && activeTab !== 'design') setActiveTab('design');
+  }, [advanced, activeTab]);
 
   // Send the source to the sandboxed Icarus Verilog backend; on success the returned
   // VCD flows into the shared model and both tabs update. See /api/simulate.
@@ -42,12 +43,25 @@ endmodule
     setRunning(true);
     setStatus(null);
     try {
+      const payload = { 
+        code, 
+        testbench: testbench.trim() ? testbench : undefined,
+        cst: cst.trim() ? cst : undefined,
+        sdc: sdc.trim() ? sdc : undefined,
+        opts: { durationNs },
+        peripherals: ['uart', 'flash', 'sd', 'hdmi']
+      };
+      
       const res = await fetch('/api/simulate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code }),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
+      
+      if (data.diagnostics) setDiagnostics(data.diagnostics);
+      if (data.peripheralOutputs) setPeripheralOutputs(data.peripheralOutputs);
+
       if (data.ok) {
         const model = setModel(data.vcd);
         const n = model?.signals?.length ?? 0;
@@ -80,16 +94,41 @@ endmodule
 
       {/* Sub Toolbar */}
       <div className="h-10 bg-panel flex items-center justify-between px-3 shrink-0">
-        <div className="flex items-center gap-4 text-[13px] text-text-secondary">
-          <button className="flex items-center gap-1 hover:bg-edge px-2 py-1 rounded transition-colors">
-            Verilog <ChevronDown size={14} />
-          </button>
-          <div className="flex items-center gap-1 text-text-muted">
-            <Lock size={12} />
-            <span className="text-[12px]">Auto</span>
-          </div>
+        <div className="flex items-center gap-1 text-[13px]">
+          {tabs.map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`px-2.5 py-1 rounded transition-colors capitalize ${activeTab === tab ? 'bg-edge text-text-primary' : 'text-text-secondary hover:bg-edge/60'}`}
+            >
+              {tab}
+            </button>
+          ))}
         </div>
         <div className="flex items-center gap-3 text-text-muted">
+          {advanced && (
+            <select
+              value={durationNs}
+              onChange={e => setDurationNs(Number(e.target.value))}
+              className="bg-edge/50 border border-edge text-text-primary text-[12px] rounded px-1.5 py-1 outline-none"
+              title="Simulation duration"
+            >
+              <option value={100000}>100 µs</option>
+              <option value={500000}>500 µs</option>
+              <option value={2000000}>2 ms</option>
+              <option value={10000000}>10 ms</option>
+              <option value={33333333}>33 ms (1 frame)</option>
+            </select>
+          )}
+          <button
+            onClick={() => setAdvanced(!advanced)}
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-[12px] font-medium transition-colors ${advanced ? 'bg-edge text-text-primary' : 'text-text-secondary hover:bg-edge/60'}`}
+            title="Advanced options — testbench, constraints (.cst/.sdc), simulation duration and the UART/HDMI views"
+            aria-pressed={advanced}
+          >
+            <SlidersHorizontal size={13} />
+            Advanced
+          </button>
           <button
             onClick={handleRun}
             disabled={running}
@@ -102,29 +141,33 @@ endmodule
           <button className="hover:text-text-primary transition-colors" title="Format">
             <List size={15} />
           </button>
-          <button className="hover:text-text-primary transition-colors" title="Snippets">
-            <Bookmark size={15} />
-          </button>
-          <button className="hover:text-text-primary transition-colors" title="Auto Indent">
-            <Brackets size={15} />
-          </button>
-          <button className="hover:text-text-primary transition-colors" title="Reset">
-            <RotateCcw size={15} />
-          </button>
           <button onClick={onFullscreen} className="hover:text-text-primary transition-colors" title="Fullscreen">
             <Maximize2 size={15} />
           </button>
         </div>
       </div>
 
+      {/* Editor Error / Diagnostics Banner */}
+      {status?.ok === false && (
+        <div className="bg-danger/10 text-danger border-y border-danger/20 p-2 text-xs font-mono max-h-32 overflow-auto whitespace-pre-wrap">
+          {status.text}
+        </div>
+      )}
+
       {/* Monaco Editor Container */}
       <div className="flex-1 min-h-0 relative">
         <Editor
           height="100%"
-          defaultLanguage="verilog"
+          path={activeTab + '.v'}
+          defaultLanguage={activeTab === 'cst' || activeTab === 'sdc' ? 'tcl' : 'verilog'}
           theme="vs-dark"
-          value={code}
-          onChange={(val) => setCode(val)}
+          value={activeTab === 'design' ? code : activeTab === 'testbench' ? testbench : activeTab === 'cst' ? cst : sdc}
+          onChange={(val) => {
+            if (activeTab === 'design') setCode(val ?? '');
+            else if (activeTab === 'testbench') setTestbench(val ?? '');
+            else if (activeTab === 'cst') setCst(val ?? '');
+            else setSdc(val ?? '');
+          }}
           options={{
             minimap: { enabled: false },
             fontSize: 14,

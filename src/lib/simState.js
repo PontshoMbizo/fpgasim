@@ -92,6 +92,11 @@ const SimContext = createContext(null);
 export function SimProvider({ children, board }) {
   const [model, setModelState] = useState(DEFAULT_MODEL);
   const [timeCursor, setTimeCursor] = useState(0);
+  const [diagnostics, setDiagnostics] = useState([]);
+  const [peripheralOutputs, setPeripheralOutputs] = useState({ uart: '', ppm: null });
+  // "Advanced" reveals the constraint/testbench editors + sim-duration control and the
+  // UART/HDMI peripheral views. Off by default so the basic flow is just Design + Run.
+  const [advanced, setAdvanced] = useState(false);
 
   // Accepts a raw VCD string, a full model, or a bare signals array. Returns the
   // parsed model so callers can read e.g. signal count immediately.
@@ -113,9 +118,15 @@ export function SimProvider({ children, board }) {
       pinStates,
       timeMax: model.timeMax,
       pxPerNs: PX_PER_NS,
-      board
+      board,
+      diagnostics,
+      setDiagnostics,
+      peripheralOutputs,
+      setPeripheralOutputs,
+      advanced,
+      setAdvanced
     }),
-    [model, timeCursor, pinStates, board]
+    [model, timeCursor, pinStates, board, diagnostics, peripheralOutputs, advanced]
   );
   return <SimContext.Provider value={value}>{children}</SimContext.Provider>;
 }

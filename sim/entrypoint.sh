@@ -25,6 +25,10 @@ if ! vvp "$OBJ" 1>&2; then
   exit 3
 fi
 
+if [ -f /work/frame.ppm ]; then
+  echo "PPM_FRAME_B64:$(base64 -w 0 /work/frame.ppm)" 1>&2
+fi
+
 # 4. Emit the dump. If the design produced none, that's a usage error, not a crash.
 if [ ! -f "$VCD" ]; then
   echo "error: simulation produced no VCD (did the testbench call \$dumpfile/\$dumpvars?)" 1>&2

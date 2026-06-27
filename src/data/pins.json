@@ -33,7 +33,9 @@
     "special": [],
     "layer": "IO",
     "x": 726,
-    "y": 280
+    "y": 280,
+    "ioType": "LVCMOS33",
+    "pullMode": "NONE"
   },
   {
     "id": "31",
@@ -45,7 +47,9 @@
     "special": [],
     "layer": "IO",
     "x": 709,
-    "y": 280
+    "y": 280,
+    "ioType": "LVCMOS33",
+    "pullMode": "NONE"
   },
   {
     "id": "49",
@@ -57,7 +61,9 @@
     "special": [],
     "layer": "IO",
     "x": 693,
-    "y": 280
+    "y": 280,
+    "ioType": "LVCMOS33",
+    "pullMode": "NONE"
   },
   {
     "id": "48",
@@ -69,7 +75,9 @@
     "special": [],
     "layer": "IO",
     "x": 676,
-    "y": 280
+    "y": 280,
+    "ioType": "LVCMOS33",
+    "pullMode": "NONE"
   },
   {
     "id": "5V",
@@ -91,11 +99,14 @@
     "side": "TOP",
     "kind": "io",
     "special": [
-      "HDMI_D0_N"
+      "HDMI",
+      "TMDS_D0_N"
     ],
     "layer": "HDMI",
     "x": 643,
-    "y": 280
+    "y": 280,
+    "ioType": "LVCMOS33",
+    "pullMode": "NONE"
   },
   {
     "id": "71",
@@ -105,11 +116,14 @@
     "side": "TOP",
     "kind": "io",
     "special": [
-      "HDMI_D0_P"
+      "HDMI",
+      "TMDS_D0_P"
     ],
     "layer": "HDMI",
     "x": 625,
-    "y": 280
+    "y": 280,
+    "ioType": "LVCMOS33",
+    "pullMode": "NONE"
   },
   {
     "id": "73",
@@ -119,11 +133,14 @@
     "side": "TOP",
     "kind": "io",
     "special": [
-      "HDMI_D1_P"
+      "HDMI",
+      "TMDS_D1_P"
     ],
     "layer": "HDMI",
     "x": 592,
-    "y": 280
+    "y": 280,
+    "ioType": "LVCMOS33",
+    "pullMode": "NONE"
   },
   {
     "id": "72",
@@ -133,11 +150,14 @@
     "side": "TOP",
     "kind": "io",
     "special": [
-      "HDMI_D1_N"
+      "HDMI",
+      "TMDS_D1_N"
     ],
     "layer": "HDMI",
     "x": 609,
-    "y": 280
+    "y": 280,
+    "ioType": "LVCMOS33",
+    "pullMode": "NONE"
   },
   {
     "id": "74",
@@ -147,11 +167,14 @@
     "side": "TOP",
     "kind": "io",
     "special": [
-      "HDMI_D2_N"
+      "HDMI",
+      "TMDS_D2_N"
     ],
     "layer": "HDMI",
     "x": 574,
-    "y": 280
+    "y": 280,
+    "ioType": "LVCMOS33",
+    "pullMode": "NONE"
   },
   {
     "id": "75",
@@ -161,11 +184,14 @@
     "side": "TOP",
     "kind": "io",
     "special": [
-      "HDMI_D2_P"
+      "HDMI",
+      "TMDS_D2_P"
     ],
     "layer": "HDMI",
     "x": 557,
-    "y": 280
+    "y": 280,
+    "ioType": "LVCMOS33",
+    "pullMode": "NONE"
   },
   {
     "id": "76",
@@ -177,7 +203,9 @@
     "special": [],
     "layer": "IO",
     "x": 541,
-    "y": 280
+    "y": 280,
+    "ioType": "LVCMOS33",
+    "pullMode": "NONE"
   },
   {
     "id": "77",
@@ -189,7 +217,9 @@
     "special": [],
     "layer": "IO",
     "x": 524,
-    "y": 280
+    "y": 280,
+    "ioType": "LVCMOS33",
+    "pullMode": "NONE"
   },
   {
     "id": "79",
@@ -201,7 +231,9 @@
     "special": [],
     "layer": "IO",
     "x": 508,
-    "y": 280
+    "y": 280,
+    "ioType": "LVCMOS33",
+    "pullMode": "NONE"
   },
   {
     "id": "80",
@@ -213,7 +245,9 @@
     "special": [],
     "layer": "IO",
     "x": 491,
-    "y": 280
+    "y": 280,
+    "ioType": "LVCMOS33",
+    "pullMode": "NONE"
   },
   {
     "id": "81",
@@ -225,7 +259,9 @@
     "special": [],
     "layer": "IO",
     "x": 474,
-    "y": 280
+    "y": 280,
+    "ioType": "LVCMOS33",
+    "pullMode": "NONE"
   },
   {
     "id": "82",
@@ -237,7 +273,9 @@
     "special": [],
     "layer": "IO",
     "x": 457,
-    "y": 280
+    "y": 280,
+    "ioType": "LVCMOS33",
+    "pullMode": "NONE"
   },
   {
     "id": "83",
@@ -249,7 +287,9 @@
     "special": [],
     "layer": "IO",
     "x": 441,
-    "y": 280
+    "y": 280,
+    "ioType": "LVCMOS33",
+    "pullMode": "NONE"
   },
   {
     "id": "84",
@@ -261,7 +301,9 @@
     "special": [],
     "layer": "IO",
     "x": 423,
-    "y": 280
+    "y": 280,
+    "ioType": "LVCMOS33",
+    "pullMode": "NONE"
   },
   {
     "id": "85",
@@ -273,7 +315,9 @@
     "special": [],
     "layer": "IO",
     "x": 407,
-    "y": 280
+    "y": 280,
+    "ioType": "LVCMOS33",
+    "pullMode": "NONE"
   },
   {
     "id": "86",
@@ -285,7 +329,9 @@
     "special": [],
     "layer": "IO",
     "x": 389,
-    "y": 280
+    "y": 280,
+    "ioType": "LVCMOS33",
+    "pullMode": "NONE"
   },
   {
     "id": "63",
@@ -294,10 +340,14 @@
     "bank": "IOR5A",
     "side": "TOP",
     "kind": "io",
-    "special": [],
+    "special": [
+      "CLK"
+    ],
     "layer": "IO",
     "x": 370,
-    "y": 280
+    "y": 280,
+    "ioType": "LVCMOS33",
+    "pullMode": "NONE"
   },
   {
     "id": "69",
@@ -307,11 +357,14 @@
     "side": "BOTTOM",
     "kind": "io",
     "special": [
-      "HDMI_CK_P"
+      "HDMI",
+      "TMDS_CLK_P"
     ],
     "layer": "HDMI",
     "x": 759,
-    "y": 430
+    "y": 430,
+    "ioType": "LVCMOS33",
+    "pullMode": "NONE"
   },
   {
     "id": "68",
@@ -321,11 +374,14 @@
     "side": "BOTTOM",
     "kind": "io",
     "special": [
-      "HDMI_CK_N"
+      "HDMI",
+      "TMDS_CLK_N"
     ],
     "layer": "HDMI",
     "x": 743,
-    "y": 430
+    "y": 430,
+    "ioType": "LVCMOS33",
+    "pullMode": "NONE"
   },
   {
     "id": "57",
@@ -337,7 +393,9 @@
     "special": [],
     "layer": "IO",
     "x": 727,
-    "y": 430
+    "y": 430,
+    "ioType": "LVCMOS33",
+    "pullMode": "NONE"
   },
   {
     "id": "56",
@@ -349,7 +407,9 @@
     "special": [],
     "layer": "IO",
     "x": 708,
-    "y": 430
+    "y": 430,
+    "ioType": "LVCMOS33",
+    "pullMode": "NONE"
   },
   {
     "id": "55",
@@ -361,7 +421,9 @@
     "special": [],
     "layer": "IO",
     "x": 693,
-    "y": 430
+    "y": 430,
+    "ioType": "LVCMOS33",
+    "pullMode": "NONE"
   },
   {
     "id": "54",
@@ -373,7 +435,9 @@
     "special": [],
     "layer": "IO",
     "x": 676,
-    "y": 430
+    "y": 430,
+    "ioType": "LVCMOS33",
+    "pullMode": "NONE"
   },
   {
     "id": "53",
@@ -385,7 +449,9 @@
     "special": [],
     "layer": "IO",
     "x": 660,
-    "y": 430
+    "y": 430,
+    "ioType": "LVCMOS33",
+    "pullMode": "NONE"
   },
   {
     "id": "51",
@@ -397,7 +463,9 @@
     "special": [],
     "layer": "IO",
     "x": 642,
-    "y": 430
+    "y": 430,
+    "ioType": "LVCMOS33",
+    "pullMode": "NONE"
   },
   {
     "id": "42",
@@ -409,7 +477,9 @@
     "special": [],
     "layer": "IO",
     "x": 626,
-    "y": 430
+    "y": 430,
+    "ioType": "LVCMOS33",
+    "pullMode": "NONE"
   },
   {
     "id": "41",
@@ -421,7 +491,9 @@
     "special": [],
     "layer": "IO",
     "x": 610,
-    "y": 430
+    "y": 430,
+    "ioType": "LVCMOS33",
+    "pullMode": "NONE"
   },
   {
     "id": "35",
@@ -433,7 +505,9 @@
     "special": [],
     "layer": "IO",
     "x": 592,
-    "y": 430
+    "y": 430,
+    "ioType": "LVCMOS33",
+    "pullMode": "NONE"
   },
   {
     "id": "40",
@@ -445,7 +519,9 @@
     "special": [],
     "layer": "IO",
     "x": 575,
-    "y": 430
+    "y": 430,
+    "ioType": "LVCMOS33",
+    "pullMode": "NONE"
   },
   {
     "id": "34",
@@ -457,7 +533,9 @@
     "special": [],
     "layer": "IO",
     "x": 558,
-    "y": 430
+    "y": 430,
+    "ioType": "LVCMOS33",
+    "pullMode": "NONE"
   },
   {
     "id": "33",
@@ -469,7 +547,9 @@
     "special": [],
     "layer": "IO",
     "x": 542,
-    "y": 430
+    "y": 430,
+    "ioType": "LVCMOS33",
+    "pullMode": "NONE"
   },
   {
     "id": "30",
@@ -481,7 +561,9 @@
     "special": [],
     "layer": "IO",
     "x": 525,
-    "y": 430
+    "y": 430,
+    "ioType": "LVCMOS33",
+    "pullMode": "NONE"
   },
   {
     "id": "29",
@@ -493,7 +575,9 @@
     "special": [],
     "layer": "IO",
     "x": 509,
-    "y": 430
+    "y": 430,
+    "ioType": "LVCMOS33",
+    "pullMode": "NONE"
   },
   {
     "id": "28",
@@ -505,7 +589,9 @@
     "special": [],
     "layer": "IO",
     "x": 491,
-    "y": 430
+    "y": 430,
+    "ioType": "LVCMOS33",
+    "pullMode": "NONE"
   },
   {
     "id": "27",
@@ -517,7 +603,9 @@
     "special": [],
     "layer": "IO",
     "x": 474,
-    "y": 430
+    "y": 430,
+    "ioType": "LVCMOS33",
+    "pullMode": "NONE"
   },
   {
     "id": "26",
@@ -529,7 +617,9 @@
     "special": [],
     "layer": "IO",
     "x": 457,
-    "y": 430
+    "y": 430,
+    "ioType": "LVCMOS33",
+    "pullMode": "NONE"
   },
   {
     "id": "25",
@@ -541,7 +631,9 @@
     "special": [],
     "layer": "IO",
     "x": 441,
-    "y": 430
+    "y": 430,
+    "ioType": "LVCMOS33",
+    "pullMode": "NONE"
   },
   {
     "id": "39",
@@ -551,11 +643,13 @@
     "side": "BOTTOM",
     "kind": "io",
     "special": [
-      "TF_MISO"
+      "SD_MISO"
     ],
     "layer": "SD",
     "x": 423,
-    "y": 430
+    "y": 430,
+    "ioType": "LVCMOS33",
+    "pullMode": "NONE"
   },
   {
     "id": "36",
@@ -565,11 +659,13 @@
     "side": "BOTTOM",
     "kind": "io",
     "special": [
-      "TF_SCLK"
+      "SD_CLK"
     ],
     "layer": "SD",
     "x": 407,
-    "y": 430
+    "y": 430,
+    "ioType": "LVCMOS33",
+    "pullMode": "NONE"
   },
   {
     "id": "37",
@@ -579,11 +675,13 @@
     "side": "BOTTOM",
     "kind": "io",
     "special": [
-      "TF_MOSI"
+      "SD_MOSI"
     ],
     "layer": "SD",
     "x": 390,
-    "y": 430
+    "y": 430,
+    "ioType": "LVCMOS33",
+    "pullMode": "NONE"
   },
   {
     "id": "38",
@@ -593,10 +691,208 @@
     "side": "BOTTOM",
     "kind": "io",
     "special": [
-      "TF_CS"
+      "SD_CS"
     ],
     "layer": "SD",
     "x": 371,
-    "y": 430
+    "y": 430,
+    "ioType": "LVCMOS33",
+    "pullMode": "NONE"
+  },
+  {
+    "id": "17",
+    "bank": "IOB",
+    "name": "IOB2A",
+    "kind": "io",
+    "layer": 1,
+    "cx": 0,
+    "cy": 0,
+    "special": [
+      "UART_TX"
+    ],
+    "ioType": "LVCMOS33",
+    "pullMode": "NONE"
+  },
+  {
+    "id": "18",
+    "bank": "IOB",
+    "name": "IOB2B",
+    "kind": "io",
+    "layer": 1,
+    "cx": 0,
+    "cy": 0,
+    "special": [
+      "UART_RX"
+    ],
+    "ioType": "LVCMOS33",
+    "pullMode": "NONE"
+  },
+  {
+    "id": "3",
+    "name": "IOT2A",
+    "num": 3,
+    "bank": "IOT2",
+    "side": "BOTTOM",
+    "kind": "io",
+    "special": [
+      "BTN1"
+    ],
+    "layer": "IO",
+    "x": 376,
+    "y": 302
+  },
+  {
+    "id": "4",
+    "name": "IOL5A",
+    "num": 4,
+    "bank": "IOL5",
+    "side": "BOTTOM",
+    "kind": "io",
+    "special": [
+      "BTN2"
+    ],
+    "layer": "IO",
+    "x": 375,
+    "y": 408
+  },
+  {
+    "id": "10",
+    "name": "IOL15A",
+    "num": 10,
+    "bank": "IOL15",
+    "side": "BOTTOM",
+    "kind": "io",
+    "special": [
+      "LED0"
+    ],
+    "layer": "IO",
+    "x": 480,
+    "y": 329
+  },
+  {
+    "id": "11",
+    "name": "IOL16B",
+    "num": 11,
+    "bank": "IOL16",
+    "side": "BOTTOM",
+    "kind": "io",
+    "special": [
+      "LED1"
+    ],
+    "layer": "IO",
+    "x": 480,
+    "y": 340
+  },
+  {
+    "id": "13",
+    "name": "IOL21B",
+    "num": 13,
+    "bank": "IOL21",
+    "side": "BOTTOM",
+    "kind": "io",
+    "special": [
+      "LED2"
+    ],
+    "layer": "IO",
+    "x": 480,
+    "y": 351
+  },
+  {
+    "id": "14",
+    "name": "IOL22B",
+    "num": 14,
+    "bank": "IOL22",
+    "side": "BOTTOM",
+    "kind": "io",
+    "special": [
+      "LED3"
+    ],
+    "layer": "IO",
+    "x": 480,
+    "y": 362
+  },
+  {
+    "id": "15",
+    "name": "IOL25B",
+    "num": 15,
+    "bank": "IOL25",
+    "side": "BOTTOM",
+    "kind": "io",
+    "special": [
+      "LED4"
+    ],
+    "layer": "IO",
+    "x": 480,
+    "y": 373
+  },
+  {
+    "id": "16",
+    "name": "IOL26B",
+    "num": 16,
+    "bank": "IOL26",
+    "side": "BOTTOM",
+    "kind": "io",
+    "special": [
+      "LED5"
+    ],
+    "layer": "IO",
+    "x": 480,
+    "y": 384
+  },
+  {
+    "id": "60",
+    "name": "IOR12A",
+    "num": 60,
+    "bank": "IOR12",
+    "side": "BOTTOM",
+    "kind": "io",
+    "special": [
+      "FLASH_CS"
+    ],
+    "layer": "IO",
+    "x": 618,
+    "y": 308
+  },
+  {
+    "id": "59",
+    "name": "IOR12B",
+    "num": 59,
+    "bank": "IOR12",
+    "side": "BOTTOM",
+    "kind": "io",
+    "special": [
+      "FLASH_CLK"
+    ],
+    "layer": "IO",
+    "x": 629,
+    "y": 308
+  },
+  {
+    "id": "61",
+    "name": "IOR11B",
+    "num": 61,
+    "bank": "IOR11",
+    "side": "BOTTOM",
+    "kind": "io",
+    "special": [
+      "FLASH_MOSI"
+    ],
+    "layer": "IO",
+    "x": 640,
+    "y": 308
+  },
+  {
+    "id": "62",
+    "name": "IOR11A",
+    "num": 62,
+    "bank": "IOR11",
+    "side": "BOTTOM",
+    "kind": "io",
+    "special": [
+      "FLASH_MISO"
+    ],
+    "layer": "IO",
+    "x": 651,
+    "y": 308
   }
 ]

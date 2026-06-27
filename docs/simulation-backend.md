@@ -7,10 +7,10 @@ pins, and how it does so safely with untrusted code from anyone on the internet.
 
 ```
   EditorPane ("Run")                                         Browser
-      │  POST /api/simulate { code }
+      │  POST /api/simulate { code, testbench? }
       ▼
   src/app/api/simulate/route.js          ── rate limit + concurrency cap + size cap
-      │  source = code + generateTestbench(code)   (unless code has its own $dumpvars)
+      │  source = code + (testbench || generateTestbench(code))   (see precedence below)
       ▼
   src/lib/sandbox.js  runSimulation(source)        ── Node server
       │  spawn podman run … (locked-down flags)
@@ -35,7 +35,10 @@ to produce a standard VCD; everything downstream is unchanged from Phases 1–3.
 
 `POST /api/simulate`
 
-Request: `{ "code": "<verilog source>" }`
+Request: `{ "code": "<verilog source>", "testbench"?: "<verilog testbench>" }`
+
+`testbench` is optional. When present and non-empty it is appended to `code` and used
+verbatim (auto stimulus is skipped). The combined size is bounded by the same cap.
 
 Response (always HTTP 200 on a completed run; 4xx for bad input / limits):
 
@@ -91,8 +94,15 @@ classic `$system("…")` RCE path is inert before the sandbox flags matter.
 
 ## Stimulus model (auto testbench)
 
-The editor holds only the design under test, so `src/lib/testbench.js` synthesizes a
-testbench when the source has no `$dumpvars`:
+The editor's **Testbench** tab lets you write a separate testbench; when it's non-empty
+it's sent as the `testbench` field and used as-is. The backend resolves stimulus in this
+order:
+
+1. explicit `testbench` field (the Testbench tab) → appended and used verbatim;
+2. else an inline `$dumpvars` in the design → compiled verbatim;
+3. else `src/lib/testbench.js` synthesizes a default clock testbench.
+
+For case 3, when the source has no `$dumpvars`, generation:
 
 - picks the top module (named `top`, else the un-instantiated one, else the first);
 - parses its ANSI port header;
@@ -107,6 +117,30 @@ your code is compiled verbatim.
 > Note: an uninitialized `reg` simulates as `X` (e.g. the demo `counter`), which is
 > faithful real-hardware behavior, not a bug — initialize it or drive the buttons to see
 > defined values.
+
+## Editor templates (operator-settable)
+
+The starter Design and Testbench shown in the editor come from a small server-side
+registry, `src/lib/templates.js`, layered over the built-in defaults in
+`src/lib/templateDefaults.js`. The page is a server component that calls `getTemplates()`
+and seeds the client editor, so changes take effect on the next page load — no rebuild.
+
+```js
+// server code only (touches the filesystem)
+import { setTemplate, setTemplates, getTemplates, resetTemplates } from "@/lib/templates";
+// or the convenience entry:  import { setTemplate } from "nikaVSimulator/server"
+
+setTemplate("testbench", "`timescale 1ns/1ps\nmodule tb; ... endmodule\n");
+setTemplates({ design, testbench });   // set several at once
+setTemplate("testbench", null);        // clear one override (back to default)
+resetTemplates();                       // clear all overrides
+getTemplates();                         // -> { design, testbench }
+```
+
+Overrides persist as JSON at `NIKA_TEMPLATES_FILE` (default `./data/templates.json`).
+Names are limited to `design` and `testbench`; bodies are capped at 200 KB (the same
+ceiling `/api/simulate` enforces). Client code must import the constants from
+`src/lib/templateDefaults.js`, never the registry — the registry uses `node:fs`.
 
 ## Self-hosting
 

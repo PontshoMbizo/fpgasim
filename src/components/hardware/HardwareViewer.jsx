@@ -102,6 +102,7 @@ export default function HardwareViewer({ board }) {
                     key={pin.id}
                     pin={pin}
                     state={pinStates[pin.id]}
+                    pinFunction={board?.pinFunction?.[pin.id]}
                     isHovered={hoveredPin?.id === pin.id}
                     isHighlighted={isHighlighted}
                     onHover={() => setHoveredPin(pin)}

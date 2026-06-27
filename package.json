@@ -2,29 +2,45 @@
   "name": "nikavsimulator",
   "version": "0.1.0",
   "private": true,
-  "main": "src/index.js",
+  "main": "./dist/index.js",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
     "test": "node --test test/*.test.mjs",
-    "test:unit": "node --test test/vcd.test.mjs test/testbench.test.mjs"
+    "test:unit": "node --test test/vcd.test.mjs test/testbench.test.mjs test/constraints.test.mjs test/board.test.mjs test/boardRules.test.mjs test/boardHarness.test.mjs",
+    "build:lib": "tsup"
   },
   "dependencies": {
     "@monaco-editor/react": "^4.7.0",
     "framer-motion": "^12.40.0",
     "lucide-react": "^1.21.0",
-    "next": "16.2.9",
     "puppeteer": "^25.2.0",
-    "react": "19.2.4",
-    "react-dom": "19.2.4",
     "react-zoom-pan-pinch": "^4.0.3"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "eslint": "^9",
     "eslint-config-next": "16.2.9",
-    "tailwindcss": "^4"
+    "tailwindcss": "^4",
+    "tsup": "^8.5.1",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "next": "16.2.9"
+  },
+  "peerDependencies": {
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "next": "16.2.9"
+  },
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "require": "./dist/index.js",
+      "import": "./dist/index.mjs"
+    }
   }
 }
