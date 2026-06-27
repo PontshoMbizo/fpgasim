@@ -1,5 +1,8 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
+# claude code agent scratch / git worktrees (each is its own checkout)
+/.claude
+
 # dependencies
 /node_modules
 /.pnp
