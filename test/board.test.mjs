@@ -19,6 +19,12 @@ const PINS = JSON.parse(
 );
 const pinIds = new Set(PINS.map((p) => String(p.id)));
 
+test("every pin in pins.json has finite x/y coordinates", () => {
+  // Missing coords render as NaN in the SVG board/pin-mapper views.
+  const bad = PINS.filter((p) => !Number.isFinite(p.x) || !Number.isFinite(p.y));
+  assert.deepEqual(bad.map((p) => p.id), [], "pins without numeric coordinates");
+});
+
 test("every peripheral pin exists in pins.json", () => {
   const missing = PERIPHERAL_PINS.filter((e) => !pinIds.has(String(e.pin)));
   assert.deepEqual(

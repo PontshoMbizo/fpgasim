@@ -711,7 +711,9 @@
       "UART_TX"
     ],
     "ioType": "LVCMOS33",
-    "pullMode": "NONE"
+    "pullMode": "NONE",
+    "x": 574,
+    "y": 430
   },
   {
     "id": "18",
@@ -725,7 +727,9 @@
       "UART_RX"
     ],
     "ioType": "LVCMOS33",
-    "pullMode": "NONE"
+    "pullMode": "NONE",
+    "x": 590,
+    "y": 430
   },
   {
     "id": "3",

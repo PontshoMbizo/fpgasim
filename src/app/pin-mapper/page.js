@@ -338,6 +338,9 @@ export default function PinMapper() {
 
             {/* Pins */}
             {pins.map((p) => {
+              // Skip pins without valid coordinates so a malformed entry can't crash
+              // the SVG (NaN x/y).
+              if (!Number.isFinite(p.x) || !Number.isFinite(p.y)) return null;
               const isSel = p._key === selectedKey;
               const color = colorFor(p);
               return (
