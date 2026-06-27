@@ -21,8 +21,10 @@ export default function HardwareViewer({ board }) {
 
   const { pinStates } = useSim();
 
-  const PINS = board?.pins || [];
-  const COMPONENTS = board?.components || [];
+  // Memoize so a falsy board.pins/components doesn't create a new [] each render
+  // (which would destabilize the useMemo deps below).
+  const PINS = useMemo(() => board?.pins || [], [board?.pins]);
+  const COMPONENTS = useMemo(() => board?.components || [], [board?.components]);
   const BOARD_WIDTH = board?.width || 1200;
   const BOARD_HEIGHT = board?.height || 700;
 
