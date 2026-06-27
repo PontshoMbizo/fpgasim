@@ -54,8 +54,11 @@ export default function PinMapper() {
       fetch("/api/pins").then((r) => r.json()),
       fetch("/api/components").then((r) => r.json()),
     ]);
-    setPins(pp.map((p) => ({ ...p, _key: key() })));
-    setComponents(cc.map((c) => ({ ...c, _key: key() })));
+    // Coerce coordinates to finite numbers so a malformed/legacy entry can't render
+    // as NaN in the SVG.
+    const num = (v) => (Number.isFinite(v) ? v : 0);
+    setPins(pp.map((p) => ({ ...p, x: num(p.x), y: num(p.y), _key: key() })));
+    setComponents(cc.map((c) => ({ ...c, x: num(c.x), y: num(c.y), _key: key() })));
     setStatus(`Loaded ${pp.length} pins, ${cc.length} components`);
   };
 
@@ -70,11 +73,14 @@ export default function PinMapper() {
   // Screen coords -> board viewBox coords.
   const toSvg = (evt) => {
     const svg = svgRef.current;
+    const ctm = svg && svg.getScreenCTM();
+    if (!ctm) return { x: 0, y: 0 }; // not laid out yet — avoid NaN coords
     const pt = svg.createSVGPoint();
     pt.x = evt.clientX;
     pt.y = evt.clientY;
-    const p = pt.matrixTransform(svg.getScreenCTM().inverse());
-    return { x: Math.round(p.x), y: Math.round(p.y) };
+    const p = pt.matrixTransform(ctm.inverse());
+    const x = Math.round(p.x), y = Math.round(p.y);
+    return { x: Number.isFinite(x) ? x : 0, y: Number.isFinite(y) ? y : 0 };
   };
 
   const handleWheel = (evt) => {
