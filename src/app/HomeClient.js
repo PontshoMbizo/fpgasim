@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import EditorPane from '@/components/EditorPane';
 import SimulationPane from '@/components/SimulationPane';
 import { SimProvider } from '@/lib/simState';
+import { listenForInit } from '@/lib/scopeioBridge';
 
 import { TangNano9kBoard } from '@/boards/tangnano9k';
 
@@ -11,18 +12,12 @@ const DEFAULT_SPLIT = 60;
 export default function HomeClient({ templates }) {
   const [topHeight, setTopHeight] = useState(DEFAULT_SPLIT); // % height of editor
   const [fullscreen, setFullscreen] = useState(null); // 'editor' | 'sim' | null
+  // Set only when embedded under scope.io with a scopeio:init message — drives
+  // the starter prefill + the extra Save/Capture/Submit button in EditorPane.
+  // Plain standalone use or the /tools iframe (no bridge) leaves this null.
+  const [embedMode, setEmbedMode] = useState(null);
 
-  // PostMessage communication skeleton
-  useEffect(() => {
-    const handleMessage = (event) => {
-      // In production, verify event.origin to ensure it's from Scope.io
-      if (event.data?.type === 'UPDATE_CODE') {
-        console.log("Received code from Scope.io:", event.data.code);
-      }
-    };
-    window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
-  }, []);
+  useEffect(() => listenForInit(setEmbedMode), []);
 
   const handleMouseDown = (e) => {
     e.preventDefault();
@@ -69,6 +64,7 @@ export default function HomeClient({ templates }) {
         >
           <EditorPane
             templates={templates}
+            embedMode={embedMode}
             isFullscreen={fullscreen === 'editor'}
             onFullscreen={() => toggleFullscreen('editor')}
             isCollapsed={editorCollapsed}

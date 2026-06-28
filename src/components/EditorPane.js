@@ -1,19 +1,25 @@
 "use client";
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Editor from '@monaco-editor/react';
-import { Code2, Maximize2, List, SlidersHorizontal, Play, Loader } from 'lucide-react';
+import { Code2, Maximize2, List, SlidersHorizontal, Play, Loader, Send } from 'lucide-react';
 import PaneHeader from './ui/PaneHeader';
 import { useSim } from '../lib/simState';
 import { DEFAULT_DESIGN, DEFAULT_TESTBENCH } from '../lib/templateDefaults';
+import { sendResult, extractChanges } from '../lib/scopeioBridge';
 
 // Editor tabs. "design" is always available; the rest are revealed by Advanced mode.
 const BASIC_TABS = ['design'];
 const ADVANCED_TABS = ['design', 'testbench', 'cst', 'sdc'];
 
+const EMBED_ACTION_LABEL = { export: 'Save starter', capture: 'Capture golden', solve: 'Submit' };
+
 // `templates` (optional) seeds the editors — supplied by the server from the
 // disk-backed registry (src/lib/templates.js). Falls back to the built-in defaults so
 // EditorPane still works when used standalone (e.g. the library export in src/index.js).
-export default function EditorPane({ templates, isFullscreen, onFullscreen, isCollapsed, onCollapse }) {
+//
+// `embedMode` (optional) — set by HomeClient once a scopeio:init message arrives.
+// `{ mode: "export"|"capture"|"solve", starterCode, testbench?, duration? }`.
+export default function EditorPane({ templates, embedMode, isFullscreen, onFullscreen, isCollapsed, onCollapse }) {
   const [code, setCode] = useState(templates?.design ?? DEFAULT_DESIGN);
 
   // Optional separate testbench. When non-empty it's sent alongside the design and
@@ -35,34 +41,51 @@ export default function EditorPane({ templates, isFullscreen, onFullscreen, isCo
   // state-sync effect is needed).
   const currentTab = tabs.includes(activeTab) ? activeTab : 'design';
 
-  // Send the source to the sandboxed Icarus Verilog backend; on success the returned
-  // VCD flows into the shared model and both tabs update. See /api/simulate.
+  // Seed the editors from the embed's starter/testbench exactly once, the first
+  // time a scopeio:init arrives — not on every embedMode reference change, so it
+  // doesn't clobber edits if the parent re-renders.
+  const seededEmbed = useRef(false);
+  useEffect(() => {
+    if (!embedMode || seededEmbed.current) return;
+    seededEmbed.current = true;
+    if (embedMode.starterCode != null) setCode(embedMode.starterCode);
+    if (embedMode.testbench != null) setTestbench(embedMode.testbench);
+    if (embedMode.duration != null) setDurationNs(embedMode.duration);
+  }, [embedMode]);
+
+  // Shared by the Run button and the embed action button: sends the source to
+  // the sandboxed Icarus Verilog backend and flows a successful VCD into the
+  // shared model. Returns the raw /api/simulate response.
+  const runSimulation = async () => {
+    const payload = {
+      code,
+      testbench: testbench.trim() ? testbench : undefined,
+      cst: cst.trim() ? cst : undefined,
+      sdc: sdc.trim() ? sdc : undefined,
+      opts: { durationNs },
+      peripherals: ['uart', 'flash', 'sd', 'hdmi']
+    };
+
+    const res = await fetch('/api/simulate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+
+    if (data.diagnostics) setDiagnostics(data.diagnostics);
+    if (data.peripheralOutputs) setPeripheralOutputs(data.peripheralOutputs);
+    const model = data.ok ? setModel(data.vcd) : null;
+    return { data, model };
+  };
+
   const handleRun = async () => {
     if (running) return;
     setRunning(true);
     setStatus(null);
     try {
-      const payload = { 
-        code, 
-        testbench: testbench.trim() ? testbench : undefined,
-        cst: cst.trim() ? cst : undefined,
-        sdc: sdc.trim() ? sdc : undefined,
-        opts: { durationNs },
-        peripherals: ['uart', 'flash', 'sd', 'hdmi']
-      };
-      
-      const res = await fetch('/api/simulate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      const data = await res.json();
-      
-      if (data.diagnostics) setDiagnostics(data.diagnostics);
-      if (data.peripheralOutputs) setPeripheralOutputs(data.peripheralOutputs);
-
+      const { data, model } = await runSimulation();
       if (data.ok) {
-        const model = setModel(data.vcd);
         const n = model?.signals?.length ?? 0;
         setStatus({ ok: true, text: `Compiled ✓ ${n} signal${n === 1 ? '' : 's'}` });
       } else {
@@ -71,6 +94,38 @@ export default function EditorPane({ templates, isFullscreen, onFullscreen, isCo
       }
     } catch (e) {
       setStatus({ ok: false, text: `Request failed: ${e.message}` });
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  // The embed-mode action button (Save starter / Capture golden / Submit).
+  // "export" just hands the current code back to scope.io — there's no golden
+  // signal configured yet at that stage, so no compile is needed. "capture"
+  // and "solve" both compile and extract the configured signal's change-list,
+  // which scope.io grades (capture: stores as golden; solve: grades against it).
+  const handleEmbedAction = async () => {
+    if (!embedMode || running) return;
+    if (embedMode.mode === 'export') {
+      sendResult({ code, ok: true, log: '', changes: [], raw: '' });
+      return;
+    }
+    setRunning(true);
+    setStatus(null);
+    try {
+      const { data, model } = await runSimulation();
+      if (!data.ok) {
+        const firstLine = (data.log || 'Simulation failed').split('\n').find(Boolean) || 'Simulation failed';
+        setStatus({ ok: false, text: `${data.stage || 'error'}: ${firstLine}` });
+        sendResult({ code, ok: false, log: data.log || firstLine, changes: [], raw: data.vcd || '' });
+        return;
+      }
+      setStatus({ ok: true, text: 'Compiled ✓' });
+      const changes = extractChanges(model, embedMode.signal);
+      sendResult({ code, ok: true, log: '', changes, raw: data.vcd });
+    } catch (e) {
+      setStatus({ ok: false, text: `Request failed: ${e.message}` });
+      sendResult({ code, ok: false, log: e.message, changes: [], raw: '' });
     } finally {
       setRunning(false);
     }
@@ -137,6 +192,17 @@ export default function EditorPane({ templates, isFullscreen, onFullscreen, isCo
             {running ? <Loader size={13} className="animate-spin" /> : <Play size={13} />}
             {running ? 'Running' : 'Run'}
           </button>
+          {embedMode && (
+            <button
+              onClick={handleEmbedAction}
+              disabled={running}
+              className="flex items-center gap-1.5 bg-emerald-600/90 hover:bg-emerald-600 text-white px-2.5 py-1 rounded text-[12px] font-medium transition-colors disabled:opacity-60"
+              title={`Send to scope.io (${embedMode.mode})`}
+            >
+              <Send size={13} />
+              {EMBED_ACTION_LABEL[embedMode.mode] || 'Send'}
+            </button>
+          )}
           <button className="hover:text-text-primary transition-colors" title="Format">
             <List size={15} />
           </button>
