@@ -8,8 +8,8 @@ name: Deploy app
 # To activate (Fly.io path):
 #   1. Add a fly.toml to the repo (flyctl launch).
 #   2. Set repo secret FLY_API_TOKEN.
-#   3. Ensure the host can pull the GHCR nika-sim image + reach a rootless
-#      podman socket (SIM_PODMAN_URL) — see docs/simulation-backend.md.
+#   3. Ensure the host can pull the GHCR nika-sim image + reach the host's
+#      Docker socket — see docs/simulation-backend.md.
 on:
   push:
     branches: [ "main" ]

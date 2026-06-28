@@ -210,12 +210,12 @@ sandbox internals and `/api/simulate` contract.
 | Suite | Command | Needs |
 |-------|---------|-------|
 | Unit (parsers, board data, rules, harness) | `npm run test:unit` | node only |
-| Everything incl. sandbox + board e2e | `npm test` | podman + the `nika-sim` image |
+| Everything incl. sandbox + board e2e | `npm test` | docker + the `nika-sim` image |
 
 Relevant test files: `test/constraints.test.mjs`, `test/board.test.mjs`,
 `test/boardRules.test.mjs`, `test/boardHarness.test.mjs`,
 `test/board.integration.test.mjs`. Build the sandbox image once with:
 
 ```
-podman build -t nika-sim -f Dockerfile.sim sim/
+docker build -t nika-sim -f Dockerfile.sim sim/
 ```

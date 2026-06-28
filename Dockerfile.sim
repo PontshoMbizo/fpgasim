@@ -1,5 +1,5 @@
 # Hardened, minimal image for running ONE untrusted Verilog simulation per container.
-# Build:  podman build -t nika-sim -f Dockerfile.sim sim/
+# Build:  docker build -t nika-sim -f Dockerfile.sim sim/
 # Run:    see src/lib/sandbox.js for the full locked-down flag set.
 FROM alpine:3.20
 

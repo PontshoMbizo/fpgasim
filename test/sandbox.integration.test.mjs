@@ -8,16 +8,16 @@ import { dirname, join } from "node:path";
 // Use a short timeout so the runaway-sim test stays fast. Must be set BEFORE
 // importing the sandbox module (it reads env at load), hence the dynamic import.
 process.env.SIM_TIMEOUT_S = process.env.SIM_TIMEOUT_S || "5";
-const IMAGE = process.env.SIM_IMAGE || "localhost/nika-sim:latest";
+const IMAGE = process.env.SIM_IMAGE || "nika-sim:latest";
 
 const here = dirname(fileURLToPath(import.meta.url));
 
 // Gate the whole suite on the sandbox image being present.
 let reason = false;
 try {
-  execFileSync("podman", ["image", "exists", IMAGE], { stdio: "ignore" });
+  execFileSync("docker", ["image", "inspect", IMAGE], { stdio: "ignore" });
 } catch {
-  reason = `sandbox image ${IMAGE} not available (build: podman build -t nika-sim -f Dockerfile.sim sim/)`;
+  reason = `sandbox image ${IMAGE} not available (build: docker build -t nika-sim -f Dockerfile.sim sim/)`;
 }
 
 const { runSimulation } = await import("../src/lib/sandbox.js");

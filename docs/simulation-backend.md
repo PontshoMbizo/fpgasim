@@ -13,7 +13,7 @@ pins, and how it does so safely with untrusted code from anyone on the internet.
       │  source = code + (testbench || generateTestbench(code))   (see precedence below)
       ▼
   src/lib/sandbox.js  runSimulation(source)        ── Node server
-      │  spawn podman run … (locked-down flags)
+      │  spawn docker run … (locked-down flags)
       ▼
   ┌──────────────────────────────────────────────┐
   │ ephemeral container  (localhost/nika-sim)     │  one per run, no network,
@@ -73,24 +73,40 @@ Every simulation runs in a throwaway container with the full flag set below. Rat
 | `--rm -i` | one-shot; source piped in, container discarded |
 | `--network none` | no exfiltration / no callbacks / no SSRF |
 | `--read-only` | root FS immutable |
-| `--tmpfs /work:size=64m,noexec,nosuid,nodev` | only writable area; bounded, can't exec or escalate |
+| `--tmpfs /work:size=64m,noexec,nosuid,nodev,uid=1000,gid=1000` | only writable area; bounded, can't exec or escalate |
 | `--cap-drop ALL` | no Linux capabilities |
 | `--security-opt no-new-privileges` | can't gain privileges via setuid |
 | `--user 1000:1000` | non-root inside the container |
 | `--pids-limit 64` | fork-bomb protection |
 | `--memory / --memory-swap 256m` | memory bound (swap = memory ⇒ no swap) |
 | `--cpus 1` | CPU bound |
-| `--timeout 12` (podman) + host `SIGKILL` | runaway-sim protection, enforced twice |
+| `--name <unique>` + host `SIGKILL` + explicit `docker kill` | runaway-sim protection, enforced twice |
+| `--env TMPDIR=/work` | iverilog writes compiler scratch files via `TMPDIR`/`TMP`; with no compensating tmpfs on `/tmp` (see below), it must be told to use the one writable, already-bounded mount |
 
 Output is also capped (`SIM_MAX_VCD_BYTES`, default 16 MB) and the child is killed if a
 dump grows past it. As an extra layer, Icarus disables `$system` by default, so even the
 classic `$system("…")` RCE path is inert before the sandbox flags matter.
 
+The tmpfs's `uid=1000,gid=1000` is required, not cosmetic: Docker (unlike Podman) mounts
+anonymous `--tmpfs` volumes as `root:root 0755` by default, which the non-root `--user
+1000:1000` sim process can't write into without it.
+
+`--env TMPDIR=/work` is required for the same reason from a different angle: Podman's
+`--read-only` auto-mounts a writable tmpfs over `/tmp` (and `/run`, `/var/tmp`) for app
+compatibility unless you opt out. Docker's `--read-only` has no such convenience — `/tmp`
+is genuinely immutable, so `iverilog`'s own scratch files (independent of `/work`) need
+`TMPDIR` redirected explicitly or compilation fails with `Error opening temporary file`.
+
+Docker has no `run`-side self-timeout flag (unlike Podman's old `--timeout`), so the
+second enforcement layer is application-level: each run gets a unique `--name`, and on
+timeout/overflow `sandbox.js` both `SIGKILL`s the CLI client *and* issues `docker kill
+<name>` directly — killing the client alone only drops the connection, it doesn't
+guarantee the container on the daemon side actually stops.
+
 ### Tunables (env)
 
-`SIM_RUNTIME` (podman|docker) · `SIM_IMAGE` · `SIM_PODMAN_URL` (remote socket) ·
-`SIM_TIMEOUT_S` · `SIM_MEMORY` · `SIM_CPUS` · `SIM_MAX_VCD_BYTES` ·
-`SIM_MAX_CONCURRENT` · `SIM_RATE_PER_MIN`.
+`SIM_RUNTIME` (default `docker`) · `SIM_IMAGE` · `SIM_TIMEOUT_S` · `SIM_MEMORY` ·
+`SIM_CPUS` · `SIM_MAX_VCD_BYTES` · `SIM_MAX_CONCURRENT` · `SIM_RATE_PER_MIN`.
 
 ## Stimulus model (auto testbench)
 
@@ -146,19 +162,19 @@ ceiling `/api/simulate` enforces). Client code must import the constants from
 
 1. Build the sim image on the host (once):
    ```
-   podman build -t nika-sim -f Dockerfile.sim sim/
+   docker build -t nika-sim -f Dockerfile.sim sim/
    ```
-2. Enable the rootless Podman socket:
+2. Make sure the Docker daemon is running:
    ```
-   systemctl --user enable --now podman.socket
+   systemctl enable --now docker     # most Linux distros; Docker Desktop handles this on macOS/Windows
    ```
 3. Start the app:
    ```
-   podman compose up --build      # or: docker compose up --build
+   docker compose up --build
    ```
 
-The app container ships the Podman *client* and launches sandbox containers on the host
-through the mounted rootless socket (`SIM_PODMAN_URL`). Because each sandbox is
+The app container ships the Docker *client* and launches sandbox containers on the host
+through the mounted Docker socket (`/var/run/docker.sock`). Because each sandbox is
 `--network none`, there is no long-running sim service to isolate — the only published
 surface is the app on `:3000`.
 
@@ -170,10 +186,16 @@ fork bombs, memory/CPU exhaustion, runaway/infinite simulations, oversized dumps
 
 **Residual / future work:**
 
-- **Podman socket = control of that rootless instance.** It is *not* host root (rootless),
-  and sandboxes are fully constrained, but an attacker who reached the app process could
-  launch other rootless containers. Stronger options: a dedicated low-privilege runner
-  user, socket-activation with a restricted policy, or nested/rootless DinD.
+- **Docker socket = root-equivalent host access.** This is a standard Docker caveat, not
+  specific to this app: the daemon runs as root by default, so anything that can reach
+  the socket can do anything root can — there's no rootless containment the way there
+  was under the previous Podman setup. Sandboxes themselves stay fully constrained, but
+  an attacker who reached the app process now has the blast radius of host root, not a
+  confined rootless instance. Stronger options, roughly in order of effort: **rootless
+  Docker** (restores a "socket ≠ host root" boundary), a **socket proxy**
+  (e.g. `docker-socket-proxy`) in front of the socket that allow-lists only the
+  `create`/`start`/`kill`/`wait` calls `sandbox.js` actually needs, or a dedicated
+  low-privilege runner host entirely separate from the app.
 - **Shared kernel.** Containers are not VMs; a kernel exploit could escape. For higher
   assurance run the sim image under gVisor (`runsc`) or a microVM (Firecracker/Kata).
 - **Abuse controls are in-process** (per-instance rate limit + concurrency cap). Behind

@@ -11,16 +11,16 @@ import { dirname, join } from "node:path";
 // sandbox.integration.test.mjs.
 
 process.env.SIM_TIMEOUT_S = process.env.SIM_TIMEOUT_S || "15";
-const IMAGE = process.env.SIM_IMAGE || "localhost/nika-sim:latest";
+const IMAGE = process.env.SIM_IMAGE || "nika-sim:latest";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, "..");
 
 let reason = false;
 try {
-  execFileSync("podman", ["image", "exists", IMAGE], { stdio: "ignore" });
+  execFileSync("docker", ["image", "inspect", IMAGE], { stdio: "ignore" });
 } catch {
-  reason = `sandbox image ${IMAGE} not available (build: podman build -t nika-sim -f Dockerfile.sim sim/)`;
+  reason = `sandbox image ${IMAGE} not available (build: docker build -t nika-sim -f Dockerfile.sim sim/)`;
 }
 
 const { runSimulation } = await import("../src/lib/sandbox.js");
