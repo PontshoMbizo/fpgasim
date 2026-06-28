@@ -43,3 +43,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# VM-only compose overrides (host-specific port binding / resource caps)
+compose.override.yml
