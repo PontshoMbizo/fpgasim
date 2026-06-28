@@ -2,6 +2,7 @@
 
 # claude code agent scratch / git worktrees (each is its own checkout)
 /.claude
+/.claire
 
 # dependencies
 /node_modules
