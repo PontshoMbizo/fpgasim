@@ -18,7 +18,7 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     environment:
       SIM_RUNTIME: docker
       SIM_IMAGE: nika-sim:latest
@@ -34,3 +34,4 @@ services:
       #   systemctl enable --now docker
       - /var/run/docker.sock:/var/run/docker.sock
     restart: unless-stopped
+    mem_limit: 1g
