@@ -1,16 +1,26 @@
 # Self-host bundle for nikaVSimulator.
 #
 # Prereq (run once on the host): build the hardened sim image so the app can spawn it
-#   docker build -t nika-sim -f Dockerfile.sim sim/
+#   podman build -t nika-sim -f Dockerfile.sim sim/
 #
-# The app talks to the host's Docker daemon via the mounted socket and launches one
-# fully locked-down, network-less sandbox container per simulation (src/lib/sandbox.js).
-# Because each sandbox runs with `--network none`, there is no sim service to network —
-# the only published surface is the app on :3000.
+# HARDENED (VM-local change, 2026-07-01): the app no longer mounts the raw Docker
+# socket (which grants ROOT-EQUIVALENT host control per the threat model in
+# docs/simulation-backend.md). It instead talks to the host's ROOTLESS Podman socket
+# (uid 1000/ubuntu, systemd --user podman.socket), which cannot escalate to host root
+# even if the app process is fully compromised. Each sandbox run still launches with
+# --network none, --cap-drop ALL, no-new-privileges, resource caps (src/lib/sandbox.js);
+# this change only narrows the blast radius of the control-plane socket itself.
 #
-# Trust note: the mounted socket grants ROOT-EQUIVALENT control of the host — this is
-# a standard Docker socket caveat, not specific to this app. See docs/simulation-backend.md
-# → Threat model for mitigations (rootless Docker, a socket proxy, etc).
+# If upstream changes replace this file, re-apply: SIM_RUNTIME=podman,
+# SIM_IMAGE=localhost/nika-sim:latest, SIM_PODMAN_URL env, and the podman.sock volume
+# mount (see Dockerfile's matching podman-instead-of-docker-cli change, and
+# src/lib/sandbox.js's SIM_PODMAN_URL --remote/--url support).
+#
+# Version note: the host's rootless Podman (Kubic apt repo, Ubuntu 20.04) is pinned at
+# 3.4.2 — quite old. podman-remote clients newer than ~4.x refuse to talk to a server
+# that old ("API version too old"), so the Dockerfile pins the CLI to 3.4.7 (from
+# Alpine v3.15's repo) to match. If the host's podman is ever upgraded, this pin can
+# be dropped in favor of whatever's current in the base image's Alpine repo.
 
 services:
   app:
@@ -20,8 +30,10 @@ services:
     ports:
       - "127.0.0.1:3000:3000"
     environment:
-      SIM_RUNTIME: docker
-      SIM_IMAGE: nika-sim:latest
+      SIM_RUNTIME: podman
+      SIM_IMAGE: localhost/nika-sim:latest
+      SIM_PODMAN_URL: unix:///var/run/podman/podman.sock
+      FRAME_ANCESTORS: "http://localhost:3000"
       # Tunables (see src/lib/sandbox.js):
       SIM_TIMEOUT_S: "12"
       SIM_MEMORY: "256m"
@@ -30,8 +42,8 @@ services:
       SIM_MAX_CONCURRENT: "4"
       SIM_RATE_PER_MIN: "30"
     volumes:
-      # Docker socket from the host. Make sure the daemon is running:
-      #   systemctl enable --now docker
-      - /var/run/docker.sock:/var/run/docker.sock
+      # Rootless Podman socket from the host (ubuntu user, uid 1001), NOT the Docker
+      # socket. systemctl --user status podman.socket to confirm it's active.
+      - /run/user/1001/podman/podman.sock:/var/run/podman/podman.sock
     restart: unless-stopped
     mem_limit: 1g

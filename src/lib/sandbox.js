@@ -16,15 +16,29 @@ const TIMEOUT_S = Number(ENV.SIM_TIMEOUT_S || 12); // wall-clock per simulation
 const MAX_VCD_BYTES = Number(ENV.SIM_MAX_VCD_BYTES || 16 * 1024 * 1024);
 const MEMORY = ENV.SIM_MEMORY || "256m";
 const CPUS = ENV.SIM_CPUS || "1";
+// Remote rootless-Podman socket (VM-local hardening change, 2026-07-01): when set, every
+// invocation is prefixed with `--remote --url ...` so the CLI never tries to manage local
+// storage/namespaces itself (which fails anyway inside an unprivileged container) and
+// instead purely speaks the API to the host's rootless socket. Mirrors stmVSimulator's
+// sandbox.js PODMAN_URL handling. No-op when unset (plain local docker, as before).
+const PODMAN_URL = ENV.SIM_PODMAN_URL || "";
+
+function remotePrefix() {
+  return RUNTIME === "podman" && PODMAN_URL ? ["--remote", "--url", PODMAN_URL] : [];
+}
 
 // The full hardening flag set. Rationale per flag lives in docs/simulation-backend.md.
 function runArgs(name) {
   return [
+    ...remotePrefix(),
     "run", "--rm", "-i",
     "--name", name,
     "--network", "none",
     "--read-only",
-    "--tmpfs", "/work:rw,size=64m,noexec,nosuid,nodev,uid=1000,gid=1000",
+    // uid=/gid= tmpfs mount opts dropped (VM-local, 2026-07-01): unsupported by the
+    // host's podman 3.4.2 ("unknown mount option"). Default tmpfs perms (1777,
+    // root:root, world-writable sticky) still let --user 1000:1000 write to /work.
+    "--tmpfs", "/work:rw,size=64m,noexec,nosuid,nodev",
     "--cap-drop", "ALL",
     "--security-opt", "no-new-privileges",
     "--pids-limit", "64",
@@ -71,7 +85,7 @@ export function runSimulation(source) {
     // container stops (Docker has no run-side self-timeout flag like Podman did), so
     // also kill it by name directly. Best-effort: --rm may have already removed it.
     const forceKillContainer = () => {
-      execFile(RUNTIME, ["kill", name], () => {});
+      execFile(RUNTIME, [...remotePrefix(), "kill", name], () => {});
     };
 
     // Host-side hard stop — the primary timeout. Fires before the container backstop
