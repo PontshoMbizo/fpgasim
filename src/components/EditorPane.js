@@ -44,10 +44,18 @@ export default function EditorPane({ templates, embedMode, isFullscreen, onFulls
   // Seed the editors from the embed's starter/testbench exactly once, the first
   // time a scopeio:init arrives — not on every embedMode reference change, so it
   // doesn't clobber edits if the parent re-renders.
+  //
+  // Tried moving this to a render-time ref-guard (React's usual alternative to an
+  // effect + setState), but that trips react-hooks/refs instead: it only allows
+  // the narrow `if (ref.current == null) { ref.current = value }` lazy-init shape,
+  // not a boolean guard gating other setState calls. Genuinely a one-time sync
+  // from an async external event (postMessage), which is what effects are for —
+  // the ref guard already prevents the cascading-render case this rule targets.
   const seededEmbed = useRef(false);
   useEffect(() => {
     if (!embedMode || seededEmbed.current) return;
     seededEmbed.current = true;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time external sync, see comment above
     if (embedMode.starterCode != null) setCode(embedMode.starterCode);
     if (embedMode.testbench != null) setTestbench(embedMode.testbench);
     if (embedMode.duration != null) setDurationNs(embedMode.duration);
