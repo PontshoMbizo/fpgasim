@@ -9,6 +9,16 @@
 
 let parentOrigin = null;
 
+// Announce to the embedding page that this app has mounted and is listening,
+// so it can (re)send scopeio:init. Posting on iframe `load` alone races React
+// hydration — the parent's load handler can fire before listenForInit runs,
+// and the init is silently dropped. "*" is safe here: the message carries no
+// data, and the parent validates event.source/origin before replying.
+export function announceReady() {
+  if (window.parent === window) return;
+  window.parent.postMessage({ type: "scopeio:ready" }, "*");
+}
+
 export function listenForInit(onInit) {
   function handleMessage(event) {
     const data = event.data;
