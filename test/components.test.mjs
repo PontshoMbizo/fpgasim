@@ -7,6 +7,7 @@ import {
   MAX_COMPONENTS,
   MAX_WIRES,
   MAX_COMPONENT_CODE_BYTES,
+  MAX_WAYPOINTS_PER_WIRE,
 } from "../src/lib/componentSchema.js";
 import {
   generateComponentLayer,
@@ -99,6 +100,19 @@ test("validateComponents errors on too many wires", () => {
   const manyWires = Array.from({ length: MAX_WIRES + 1 }, (_, i) => ({ id: `w${i}`, a: { comp: 'c1', pin: 'A' }, b: { pin: '25' } }));
   const diags = validateComponents([NAND2_COMP], manyWires, [], null);
   assert.ok(diags.some(d => d.severity === 'error' && /Too many wires/.test(d.message)));
+});
+
+test("validateComponents errors when a wire has too many manual-routing waypoints", () => {
+  const waypoints = Array.from({ length: MAX_WAYPOINTS_PER_WIRE + 1 }, (_, i) => ({ x: i, y: i }));
+  const wire = { id: 'w1', a: { comp: 'c1', pin: 'A' }, b: { pin: '25' }, waypoints };
+  const diags = validateComponents([NAND2_COMP], [wire], [], null);
+  assert.ok(diags.some(d => d.severity === 'error' && /waypoints/.test(d.message)));
+});
+
+test("validateComponents accepts a wire with a normal number of waypoints", () => {
+  const wire = { id: 'w1', a: { comp: 'c1', pin: 'A' }, b: { pin: '25' }, waypoints: [{ x: 10, y: 10 }] };
+  const diags = validateComponents([NAND2_COMP], [wire], [], null);
+  assert.ok(!diags.some(d => /waypoints/.test(d.message)));
 });
 
 // ============================================================

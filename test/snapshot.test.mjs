@@ -7,7 +7,7 @@ import {
   SNAPSHOT_FORMAT,
   SNAPSHOT_VERSION,
 } from "../src/lib/snapshot.js";
-import { MAX_COMPONENTS, MAX_WIRES } from "../src/lib/componentSchema.js";
+import { MAX_COMPONENTS, MAX_WIRES, MAX_WAYPOINTS_PER_WIRE } from "../src/lib/componentSchema.js";
 import { MAX_STIMULI, MAX_SAMPLES_PER_STIMULUS } from "../src/lib/stimulusSchema.js";
 
 // ============================================================
@@ -69,6 +69,27 @@ test("parseSnapshot round-trips a buildSnapshot output", () => {
   assert.deepEqual(result.snapshot.peripherals, ['uart']);
   assert.equal(result.snapshot.components.length, 1);
   assert.equal(result.snapshot.wires.length, 1);
+});
+
+test("parseSnapshot round-trips chip rotation and manual wire waypoints", () => {
+  const state = {
+    design: "module top(input clk); endmodule",
+    components: [{ id: 'c1', name: 'myChip', verilog: 'module myChip(input A); endmodule', pins: [], rotation: 90 }],
+    wires: [{ id: 'w1', a: { comp: 'c1', pin: 'A' }, b: { pin: '35' }, waypoints: [{ x: 10, y: 20 }] }],
+  };
+  const json = JSON.stringify(buildSnapshot(state));
+  const result = parseSnapshot(json);
+  assert.ok(result.ok, `Expected ok, got errors: ${result.errors?.join(', ')}`);
+  assert.equal(result.snapshot.components[0].rotation, 90);
+  assert.deepEqual(result.snapshot.wires[0].waypoints, [{ x: 10, y: 20 }]);
+});
+
+test("parseSnapshot errors when a wire's waypoints exceed the cap", () => {
+  const snap = buildSnapshot({ design: "// x" });
+  snap.wires = [{ id: 'w1', waypoints: Array.from({ length: MAX_WAYPOINTS_PER_WIRE + 1 }, (_, i) => ({ x: i, y: i })) }];
+  const result = parseSnapshot(JSON.stringify(snap));
+  assert.ok(!result.ok);
+  assert.ok(result.errors.some(e => /waypoints/.test(e)));
 });
 
 test("parseSnapshot also accepts a pre-parsed object", () => {

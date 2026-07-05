@@ -7,6 +7,7 @@ import {
   pinLabel,
   splitPins,
   wirePath,
+  nextRotation,
   CHIP_PIN_STUB,
   CHIP_PAD_RADIUS,
   CHIP_PIN_SPACING,
@@ -14,6 +15,8 @@ import {
   CHIP_LABEL_FONT_SIZE,
   CHIP_LABEL_MIN_FONT_SIZE,
 } from "./chipGeometry";
+import { clientToSVG } from "./svgCoords";
+import { MAX_WAYPOINTS_PER_WIRE } from "../../lib/componentSchema";
 import { useSim } from "../../lib/simState";
 
 // ---- colour constants (per spec: near-black body, thick light-gray border) --
@@ -34,18 +37,6 @@ const WIRE_COLOR_NEUTRAL = "#6b7280";
 const RUBBER_BAND_COLOR  = COLORS.info;
 
 // ---- Utilities --------------------------------------------------------------
-
-/** Convert a client (screen) MouseEvent coordinate to SVG canvas coordinates,
- *  correctly accounting for zoom/pan transform applied by react-zoom-pan-pinch. */
-function clientToSVG(svgEl, clientX, clientY) {
-  const ctm = svgEl.getScreenCTM();
-  if (!ctm) return { x: clientX, y: clientY };
-  const inv = ctm.inverse();
-  return {
-    x: inv.a * clientX + inv.c * clientY + inv.e,
-    y: inv.b * clientX + inv.d * clientY + inv.f,
-  };
-}
 
 /** Snap a value to the nearest multiple of SNAP_GRID. */
 function snap(v) {
@@ -93,6 +84,7 @@ function ChipBody({
   const { w, h, westPins, eastPins } = chipBox(component);
   const cx = component.x;
   const cy = component.y;
+  const rotation = component.rotation || 0;
 
   // Interior label area width = half box minus a bit of centre gap
   const labelAreaW = w / 2 - 6;
@@ -122,11 +114,17 @@ function ChipBody({
       const label      = pinLabel(pin);
       const fs         = labelFontSize(label, labelAreaW);
 
+      // Click payloads (wiring source/rubber-band) need the ABSOLUTE post-rotation
+      // position, since the rubber band and committed wires render in the outer,
+      // unrotated layer — not inside this chip's own rotated <g>. pinAnchor()
+      // already applies the same rotation this body is drawn with, so reuse it
+      // rather than re-deriving the rotated point here.
+      const anchor = pinAnchor(component, pin.name);
       const padClickPayload = {
         comp: component.id,
         pin: pin.name,
-        x: padX,
-        y: padY,
+        x: anchor ? anchor.x : padX,
+        y: anchor ? anchor.y : padY,
       };
 
       return (
@@ -177,7 +175,7 @@ function ChipBody({
   };
 
   return (
-    <g>
+    <g transform={rotation ? `rotate(${rotation} ${cx + w / 2} ${cy + h / 2})` : undefined}>
       {/* Body rectangle */}
       <rect
         x={cx}
@@ -307,6 +305,7 @@ export default function ExternalChipLayer({
         id: `w${Date.now()}`,
         a: { comp: wiringFrom.comp, pin: wiringFrom.pin },
         b: { pin: boardPin.id },
+        ...(wiringFrom.waypoints?.length ? { waypoints: wiringFrom.waypoints } : {}),
       };
       setWires((prev) => [...prev, newWire]);
       setWiringFrom(null);
@@ -345,12 +344,19 @@ export default function ExternalChipLayer({
         // chip will survive if the chip is gone before pruneWires runs on the new
         // components array.  pruneWires inside setComponents handles this correctly.
         setSelectedId(null);
+        return;
+      }
+
+      if ((e.key === "r" || e.key === "R") && selectedId && !wiringFrom) {
+        setComponents((prev) =>
+          prev.map((c) => (c.id === selectedId ? { ...c, rotation: nextRotation(c.rotation) } : c))
+        );
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [selectedId, setComponents]);
+  }, [selectedId, wiringFrom, setComponents]);
 
   // ---- Global mouse-move for drag + rubber-band -------------------------------
   useEffect(() => {
@@ -393,6 +399,30 @@ export default function ExternalChipLayer({
       window.removeEventListener("mouseup", handleMouseUp);
     };
   }, [wiringFrom, dragPos, svgRef, setComponents]);
+
+  // ---- Manual routing: click empty canvas during wiring to drop a bend point --
+  // Pad clicks (handlePadClick) and board-pin clicks (PinOverlay) both call
+  // e.stopPropagation() on mousedown/click, so this window-level listener only
+  // ever sees clicks that landed on genuinely empty canvas — i.e. a deliberate
+  // "place a bend here" click, never a wire-committing click.
+  useEffect(() => {
+    if (!wiringFrom) return;
+
+    const handleCanvasClick = (e) => {
+      const svg = svgRef && svgRef.current;
+      if (!svg) return;
+      const pt = clientToSVG(svg, e.clientX, e.clientY);
+      setWiringFrom((prev) => {
+        if (!prev) return prev;
+        const waypoints = prev.waypoints || [];
+        if (waypoints.length >= MAX_WAYPOINTS_PER_WIRE) return prev;
+        return { ...prev, waypoints: [...waypoints, pt] };
+      });
+    };
+
+    window.addEventListener("click", handleCanvasClick);
+    return () => window.removeEventListener("click", handleCanvasClick);
+  }, [wiringFrom, svgRef]);
 
   // ---- Handlers ---------------------------------------------------------------
 
@@ -450,7 +480,7 @@ export default function ExternalChipLayer({
         // Start wiring from this pad
         const svg = svgRef && svgRef.current;
         const svgPt = svg ? clientToSVG(svg, e.clientX, e.clientY) : { x: padInfo.x, y: padInfo.y };
-        setWiringFrom({ comp: padInfo.comp, pin: padInfo.pin, x: padInfo.x, y: padInfo.y });
+        setWiringFrom({ comp: padInfo.comp, pin: padInfo.pin, x: padInfo.x, y: padInfo.y, waypoints: [] });
         setCursorSVG(svgPt);
       } else {
         // Commit wire to this pad (second click = destination)
@@ -465,6 +495,7 @@ export default function ExternalChipLayer({
           id: `w${Date.now()}`,
           a: { comp: wiringFrom.comp, pin: wiringFrom.pin },
           b: { comp: padInfo.comp, pin: padInfo.pin },
+          ...(wiringFrom.waypoints?.length ? { waypoints: wiringFrom.waypoints } : {}),
         };
         setWires((prev) => [...prev, newWire]);
         setWiringFrom(null);
@@ -480,7 +511,8 @@ export default function ExternalChipLayer({
   if (wiringFrom && cursorSVG) {
     const srcPts = wirePath(
       { x: wiringFrom.x, y: wiringFrom.y },
-      cursorSVG
+      cursorSVG,
+      wiringFrom.waypoints
     );
     rubberBandPoints = srcPts.map((p) => `${p.x},${p.y}`).join(" ");
   }
@@ -523,6 +555,19 @@ export default function ExternalChipLayer({
           opacity="0.8"
         />
       )}
+
+      {/* Bend points already placed for the in-progress wire (click empty canvas to add more) */}
+      {wiringFrom?.waypoints?.map((wp, i) => (
+        <circle
+          key={i}
+          cx={wp.x}
+          cy={wp.y}
+          r={3}
+          fill={RUBBER_BAND_COLOR}
+          className="pointer-events-none"
+          opacity="0.9"
+        />
+      ))}
     </g>
   );
 }

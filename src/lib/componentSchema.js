@@ -12,6 +12,7 @@ import { parsePorts, moduleNames } from './testbench.js';
 export const MAX_COMPONENTS = 8;
 export const MAX_WIRES = 64;
 export const MAX_COMPONENT_CODE_BYTES = 32 * 1024; // 32 KiB per component
+export const MAX_WAYPOINTS_PER_WIRE = 12; // manual bend points, purely cosmetic
 
 // ---- Identifier helpers --------------------------------------------------
 
@@ -246,6 +247,17 @@ export function validateComponents(components = [], wires = [], designModuleName
       diags.push({ severity: 'error', message: `Duplicate wire id "${w.id}".` });
     } else {
       seenWireIds.add(w.id);
+    }
+
+    // Manual routing bend points — purely cosmetic (codegen only cares about
+    // endpoints), but still capped so a malformed/huge snapshot can't balloon
+    // the rendered path.
+    if (w.waypoints != null) {
+      if (!Array.isArray(w.waypoints)) {
+        diags.push({ severity: 'error', message: `Wire "${w.id}" \`waypoints\` must be an array.` });
+      } else if (w.waypoints.length > MAX_WAYPOINTS_PER_WIRE) {
+        diags.push({ severity: 'error', message: `Wire "${w.id}" has ${w.waypoints.length} waypoints (max ${MAX_WAYPOINTS_PER_WIRE}).` });
+      }
     }
 
     const endpointKeys = [];  // net key per endpoint (null when invalid)

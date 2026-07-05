@@ -8,6 +8,8 @@ import {
   wirePath,
   pinLabel,
   splitPins,
+  rotatePoint,
+  nextRotation,
   CHIP_PIN_SPACING,
   CHIP_PIN_STUB,
   CHIP_PAD_RADIUS,
@@ -206,4 +208,94 @@ test("wirePath endpoints match input coordinates", () => {
   const pts = wirePath(a, b);
   assert.deepEqual(pts[0], a);
   assert.deepEqual(pts[pts.length - 1], b);
+});
+
+// ---- wirePath (manual routing / waypoints) -----------------------------------
+
+test("wirePath with waypoints visits them in order between the endpoints", () => {
+  const a = { x: 0, y: 0 };
+  const b = { x: 100, y: 100 };
+  const waypoints = [{ x: 20, y: 80 }, { x: 60, y: 10 }];
+  const pts = wirePath(a, b, waypoints);
+  assert.deepEqual(pts, [a, waypoints[0], waypoints[1], b]);
+});
+
+test("wirePath ignores auto L-routing when waypoints are given, even on straight lines", () => {
+  const a = { x: 0, y: 10 };
+  const b = { x: 100, y: 10 };
+  const pts = wirePath(a, b, [{ x: 50, y: 40 }]);
+  assert.equal(pts.length, 3, "manual routing should not collapse to a 2-point line");
+  assert.equal(pts[1].y, 40);
+});
+
+test("wirePath with an empty waypoints array falls back to auto-routing", () => {
+  const pts = wirePath({ x: 0, y: 0 }, { x: 100, y: 80 }, []);
+  assert.equal(pts.length, 4, "should still auto L-route");
+});
+
+// ---- rotatePoint --------------------------------------------------------------
+
+test("rotatePoint is identity at 0 degrees", () => {
+  const p = rotatePoint(50, 50, 0, 80, 30);
+  assert.deepEqual(p, { x: 80, y: 30 });
+});
+
+test("rotatePoint rotates a point 90 degrees clockwise around the pivot", () => {
+  // Point directly above the pivot (py < cy) should end up directly to the
+  // pivot's right after a 90deg clockwise rotation (SVG rotate() convention).
+  const p = rotatePoint(0, 0, 90, 0, -10);
+  assert.ok(Math.abs(p.x - 10) < 1e-9, `expected x≈10, got ${p.x}`);
+  assert.ok(Math.abs(p.y - 0) < 1e-9, `expected y≈0, got ${p.y}`);
+});
+
+test("rotatePoint at 180 degrees is a point reflection through the pivot", () => {
+  const p = rotatePoint(10, 10, 180, 20, 15);
+  assert.ok(Math.abs(p.x - 0) < 1e-9);
+  assert.ok(Math.abs(p.y - 5) < 1e-9);
+});
+
+// ---- nextRotation ---------------------------------------------------------------
+
+test("nextRotation cycles 0 -> 90 -> 180 -> 270 -> 0", () => {
+  let r = 0;
+  const seen = [r];
+  for (let i = 0; i < 4; i++) {
+    r = nextRotation(r);
+    seen.push(r);
+  }
+  assert.deepEqual(seen, [0, 90, 180, 270, 0]);
+});
+
+test("nextRotation treats undefined/null as 0", () => {
+  assert.equal(nextRotation(undefined), 90);
+  assert.equal(nextRotation(null), 90);
+});
+
+// ---- pinAnchor with rotation ----------------------------------------------------
+
+test("pinAnchor is unaffected when rotation is 0 or absent", () => {
+  const withZero = { ...NAND2, rotation: 0 };
+  const anchorA = pinAnchor(NAND2, "A");
+  const anchorZ = pinAnchor(withZero, "A");
+  assert.deepEqual(anchorA, anchorZ);
+});
+
+test("pinAnchor applies rotation around the chip's own center", () => {
+  const base = { ...NAND2, x: 0, y: 0 };
+  const { w, h } = chipBox(base);
+  const rotated = { ...base, rotation: 180 };
+
+  const anchorBase = pinAnchor(base, "A");
+  const anchorRotated = pinAnchor(rotated, "A");
+
+  // A 180deg rotation around the box center maps (x,y) -> (2*cx - x, 2*cy - y)
+  const cx = base.x + w / 2;
+  const cy = base.y + h / 2;
+  assert.ok(Math.abs(anchorRotated.x - (2 * cx - anchorBase.x)) < 1e-9);
+  assert.ok(Math.abs(anchorRotated.y - (2 * cy - anchorBase.y)) < 1e-9);
+});
+
+test("pinAnchor rotation still returns null for an unknown pin", () => {
+  const rotated = { ...NAND2, rotation: 90 };
+  assert.equal(pinAnchor(rotated, "NONEXISTENT"), null);
 });

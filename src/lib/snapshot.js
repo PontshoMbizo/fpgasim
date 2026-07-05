@@ -3,7 +3,7 @@
 //
 // Format: { "format": "nikav-snapshot", "version": 1, "board": "tang-nano-9k", … }
 
-import { MAX_COMPONENTS, MAX_WIRES } from './componentSchema.js';
+import { MAX_COMPONENTS, MAX_WIRES, MAX_WAYPOINTS_PER_WIRE } from './componentSchema.js';
 import { MAX_STIMULI, MAX_SAMPLES_PER_STIMULUS } from './stimulusSchema.js';
 
 export const SNAPSHOT_FORMAT = 'nikav-snapshot';
@@ -85,6 +85,11 @@ export function parseSnapshot(json) {
   }
   if (wires.length > MAX_WIRES) {
     errors.push(`Snapshot wires count ${wires.length} exceeds cap ${MAX_WIRES}.`);
+  }
+  for (const w of wires) {
+    if (Array.isArray(w?.waypoints) && w.waypoints.length > MAX_WAYPOINTS_PER_WIRE) {
+      errors.push(`Snapshot wire "${w.id}" has ${w.waypoints.length} waypoints; maximum is ${MAX_WAYPOINTS_PER_WIRE}.`);
+    }
   }
   if (stimuli.length > MAX_STIMULI) {
     errors.push(`Snapshot stimuli count ${stimuli.length} exceeds cap ${MAX_STIMULI}.`);

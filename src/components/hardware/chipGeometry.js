@@ -33,6 +33,9 @@ export const CHIP_LABEL_FONT_SIZE = 11;
 /** Minimum font size the auto-shrink is allowed to reach. */
 export const CHIP_LABEL_MIN_FONT_SIZE = 7;
 
+/** Rotation step applied per 'R' keypress / rotate button click (degrees). */
+export const CHIP_ROTATE_STEP = 90;
+
 // ---- Helpers ----------------------------------------------------------------
 
 /**
@@ -55,6 +58,36 @@ export function splitPins(component) {
   const west = pins.filter((p) => p.dir === "input");
   const east = pins.filter((p) => p.dir !== "input");
   return { west, east };
+}
+
+// ---- Rotation -----------------------------------------------------------------
+
+/**
+ * Rotate a point by `deg` degrees around (cx, cy). Matches the SVG
+ * `rotate(deg, cx, cy)` transform exactly, so this can be used to compute the
+ * absolute (post-transform) position of anything rendered inside a chip's
+ * rotated <g> without touching the DOM.
+ *
+ * @param {number} cx  Pivot x.
+ * @param {number} cy  Pivot y.
+ * @param {number} deg Rotation angle in degrees (clockwise, SVG convention).
+ * @param {number} px  Point x (pre-rotation).
+ * @param {number} py  Point y (pre-rotation).
+ * @returns {{ x: number, y: number }}
+ */
+export function rotatePoint(cx, cy, deg, px, py) {
+  if (!deg) return { x: px, y: py };
+  const rad = (deg * Math.PI) / 180;
+  const cos = Math.cos(rad);
+  const sin = Math.sin(rad);
+  const dx = px - cx;
+  const dy = py - cy;
+  return { x: cx + dx * cos - dy * sin, y: cy + dx * sin + dy * cos };
+}
+
+/** Next rotation value (0/90/180/270 cycle) after one rotate step. */
+export function nextRotation(current) {
+  return ((current || 0) + CHIP_ROTATE_STEP) % 360;
 }
 
 // ---- chipBox ----------------------------------------------------------------
@@ -91,9 +124,12 @@ export function chipBox(component) {
 
 /**
  * Return the SVG-canvas position of a chip pin's PAD (the circular endpoint),
- * plus which side it's on.
+ * plus which side it's on. Accounts for `component.rotation` (0/90/180/270,
+ * clockwise, defaults to 0) — the pad is computed in the chip's own unrotated
+ * local frame first, then rotated around the chip's center to match the same
+ * `rotate(deg, cx, cy)` transform the chip body is rendered with.
  *
- * @param {{ x: number, y: number, pins: Pin[] }} component
+ * @param {{ x: number, y: number, pins: Pin[], rotation?: number }} component
  * @param {string} pinName
  * @returns {{ x: number, y: number, side: "west"|"east" } | null}
  */
@@ -102,19 +138,25 @@ export function pinAnchor(component, pinName) {
   const cx = component.x;
   const cy = component.y;
 
+  let localX, localY, side;
   const wi = westPins.findIndex((p) => p.name === pinName);
   if (wi !== -1) {
-    const y = cy + CHIP_V_PADDING + wi * CHIP_PIN_SPACING;
-    return { x: cx - CHIP_PIN_STUB, y, side: "west" };
+    localX = cx - CHIP_PIN_STUB;
+    localY = cy + CHIP_V_PADDING + wi * CHIP_PIN_SPACING;
+    side = "west";
+  } else {
+    const ei = eastPins.findIndex((p) => p.name === pinName);
+    if (ei === -1) return null;
+    localX = cx + w + CHIP_PIN_STUB;
+    localY = cy + CHIP_V_PADDING + ei * CHIP_PIN_SPACING;
+    side = "east";
   }
 
-  const ei = eastPins.findIndex((p) => p.name === pinName);
-  if (ei !== -1) {
-    const y = cy + CHIP_V_PADDING + ei * CHIP_PIN_SPACING;
-    return { x: cx + w + CHIP_PIN_STUB, y, side: "east" };
-  }
+  const rotation = component.rotation || 0;
+  if (!rotation) return { x: localX, y: localY, side };
 
-  return null;
+  const { x, y } = rotatePoint(cx + w / 2, cy + h / 2, rotation, localX, localY);
+  return { x, y, side };
 }
 
 // ---- nextChipPosition -------------------------------------------------------
@@ -176,18 +218,25 @@ export function nextChipPosition(components, boardWidth, boardHeight) {
 // ---- wirePath ---------------------------------------------------------------
 
 /**
- * Generate an L-routed polyline between two SVG-canvas points.
+ * Generate a routed polyline between two SVG-canvas points.
  * Returns an array of {x,y} waypoints (including both endpoints).
  *
- * Routing rule: horizontal first, then vertical (matches CircuitJS style).
- * When both endpoints are on the same horizontal level, a single straight
- * segment is returned.
+ * When `waypoints` is non-empty, routing is manual: the path visits
+ * `[a, ...waypoints, b]` in order with a straight segment between each
+ * consecutive pair — no auto-routing is applied once the user has placed a
+ * bend. Otherwise falls back to the default auto L-route (horizontal first,
+ * then vertical, matching CircuitJS style); when both endpoints are on the
+ * same horizontal or vertical level, a single straight segment is returned.
  *
  * @param {{ x: number, y: number }} a  Start point.
  * @param {{ x: number, y: number }} b  End point.
+ * @param {Array<{ x: number, y: number }>} [waypoints]  Manually-placed bend points, a→b order.
  * @returns {Array<{ x: number, y: number }>}
  */
-export function wirePath(a, b) {
+export function wirePath(a, b, waypoints = []) {
+  if (waypoints && waypoints.length) {
+    return [{ x: a.x, y: a.y }, ...waypoints, { x: b.x, y: b.y }];
+  }
   if (a.y === b.y) {
     // Horizontal straight line
     return [{ x: a.x, y: a.y }, { x: b.x, y: b.y }];

@@ -231,7 +231,7 @@ export default function HardwareViewer({ board }) {
               })}
 
               {/* External chip wires — rendered below chips, above board overlays */}
-              {advanced && <WireLayer boardPins={PINS} />}
+              {advanced && <WireLayer boardPins={PINS} svgRef={svgRef} />}
 
               {/* External chip bodies — topmost SVG layer */}
               {advanced && (

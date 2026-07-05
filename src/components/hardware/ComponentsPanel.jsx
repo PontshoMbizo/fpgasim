@@ -1,7 +1,7 @@
 "use client";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Editor from '@monaco-editor/react';
-import { X, Plus, Trash2, ChevronDown, ChevronRight, Play, Loader, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { X, Plus, Trash2, RotateCw, ChevronDown, ChevronRight, Play, Loader, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { useSim } from '../../lib/simState';
 import {
   makeStubVerilog,
@@ -9,7 +9,7 @@ import {
   validateComponents,
   MAX_COMPONENTS,
 } from '../../lib/componentSchema';
-import { nextChipPosition } from './chipGeometry';
+import { nextChipPosition, nextRotation } from './chipGeometry';
 
 // ---- helpers -----------------------------------------------------------------
 
@@ -46,7 +46,7 @@ function useDebounced(fn, delay) {
 // ---- sub-components ----------------------------------------------------------
 
 /** One row in the chip list. */
-function ChipRow({ chip, isSelected, onSelect, onDelete }) {
+function ChipRow({ chip, isSelected, onSelect, onDelete, onRotate }) {
   const inputCount = chip.pins.filter((p) => p.dir === 'input').length;
   const outputCount = chip.pins.filter((p) => p.dir !== 'input').length;
   return (
@@ -65,6 +65,13 @@ function ChipRow({ chip, isSelected, onSelect, onDelete }) {
           {chip.pins.length === 0 ? ' — no parsed pins' : ''}
         </div>
       </div>
+      <button
+        onClick={(e) => { e.stopPropagation(); onRotate(chip.id); }}
+        className="text-text-muted hover:text-text-primary shrink-0"
+        title="Rotate 90° (also: select chip on board + press R)"
+      >
+        <RotateCw size={13} />
+      </button>
       <button
         onClick={(e) => { e.stopPropagation(); onDelete(chip.id); }}
         className="text-text-muted hover:text-danger shrink-0"
@@ -295,6 +302,10 @@ export default function ComponentsPanel({ onClose, focusChipId }) {
     setTestResults((r) => { const c = { ...r }; delete c[id]; return c; });
   };
 
+  const handleRotate = (id) => {
+    setComponents((cur) => cur.map((c) => (c.id === id ? { ...c, rotation: nextRotation(c.rotation) } : c)));
+  };
+
   const handleAdd = (chip) => {
     setComponents((cur) => [...cur, chip]);
     setShowAddForm(false);
@@ -395,6 +406,7 @@ export default function ComponentsPanel({ onClose, focusChipId }) {
                   isSelected={expandedId === chip.id}
                   onSelect={() => setExpandedId((id) => (id === chip.id ? null : chip.id))}
                   onDelete={handleDelete}
+                  onRotate={handleRotate}
                 />
               </div>
             </div>
