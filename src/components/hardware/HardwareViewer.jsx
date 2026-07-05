@@ -73,6 +73,13 @@ export default function HardwareViewer({ board }) {
   const COMPONENTS = useMemo(() => board?.components || [], [board?.components]);
   const BOARD_WIDTH = board?.width || 1200;
   const BOARD_HEIGHT = board?.height || 700;
+  // External chips are placed starting at BOARD_WIDTH + 24 (chipGeometry's
+  // nextChipPosition) in the free space beside the board image. Without this, the
+  // SVG's own viewBox clips at BOARD_WIDTH and every newly-created chip renders
+  // completely outside the visible/interactive canvas. Only reserved in advanced
+  // mode so the non-advanced board view is unaffected.
+  const CHIP_WORKSPACE_WIDTH = 280;
+  const CANVAS_WIDTH = advanced ? BOARD_WIDTH + CHIP_WORKSPACE_WIDTH : BOARD_WIDTH;
 
   // net (port name) -> pin id, from the board's default full pin map, and its inverse
   // for resolving "which port does this physical pin correspond to". Stimulus markers
@@ -153,8 +160,8 @@ export default function HardwareViewer({ board }) {
           <TransformComponent wrapperStyle={{ width: "100%", height: "100%" }}>
             <svg
               ref={svgRef}
-              viewBox={`0 0 ${BOARD_WIDTH} ${BOARD_HEIGHT}`}
-              width={BOARD_WIDTH}
+              viewBox={`0 0 ${CANVAS_WIDTH} ${BOARD_HEIGHT}`}
+              width={CANVAS_WIDTH}
               height={BOARD_HEIGHT}
               className="drop-shadow-[0_28px_60px_rgba(0,0,0,0.65)]"
             >
