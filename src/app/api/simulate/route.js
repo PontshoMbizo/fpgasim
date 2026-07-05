@@ -11,6 +11,7 @@ import { parseSdc } from "@/lib/sdc";
 import { checkConstraints } from "@/lib/constraintCheck";
 import { TangNano9kBoard } from "@/boards/tangnano9k";
 import { validateStimuli, MAX_STIMULI } from "@/lib/stimulusSchema";
+import { validateComponents, MAX_COMPONENTS, MAX_WIRES, MAX_COMPONENT_CODE_BYTES } from "@/lib/componentSchema";
 
 const MAX_CODE_BYTES = 200 * 1024; // reject oversized source outright
 const MAX_CONCURRENT = Number(process.env.SIM_MAX_CONCURRENT || 4);
@@ -66,7 +67,7 @@ export async function POST(request) {
     return Response.json({ ok: false, stage: "busy", log: "Simulator busy; try again shortly." }, { status: 429 });
   }
 
-  let code, testbench, cst, sdc, peripherals, opts, stimuli;
+  let code, testbench, cst, sdc, peripherals, opts, stimuli, components, wires;
   try {
     const body = await request.json();
     code = body.code;
@@ -76,6 +77,8 @@ export async function POST(request) {
     peripherals = body.peripherals || [];
     opts = body.opts || {};
     stimuli = body.stimuli || [];
+    components = body.components || [];
+    wires = body.wires || [];
   } catch {
     return Response.json({ ok: false, stage: "input", log: "Invalid JSON body." }, { status: 400 });
   }
@@ -103,6 +106,32 @@ export async function POST(request) {
     return Response.json({ ok: false, stage: "input", log: "`stimuli` requires board constraints (`cst`) — the board harness is what wires stimulus blocks in." }, { status: 400 });
   }
 
+  // Validate components/wires inputs
+  if (!Array.isArray(components)) {
+    return Response.json({ ok: false, stage: "input", log: "`components` must be an array." }, { status: 400 });
+  }
+  if (!Array.isArray(wires)) {
+    return Response.json({ ok: false, stage: "input", log: "`wires` must be an array." }, { status: 400 });
+  }
+  if ((components.length || wires.length) && hasOwnTb) {
+    return Response.json({ ok: false, stage: "input", log: "`components` has no effect alongside an explicit `testbench` — remove one." }, { status: 400 });
+  }
+  if ((components.length || wires.length) && !cst) {
+    return Response.json({ ok: false, stage: "input", log: "`components` requires board constraints (`cst`)." }, { status: 400 });
+  }
+  if (components.length > MAX_COMPONENTS) {
+    return Response.json({ ok: false, stage: "input", log: `Too many components (max ${MAX_COMPONENTS}).` }, { status: 400 });
+  }
+  if (wires.length > MAX_WIRES) {
+    return Response.json({ ok: false, stage: "input", log: `Too many wires (max ${MAX_WIRES}).` }, { status: 400 });
+  }
+  // Per-component size cap
+  for (const c of components) {
+    if (c && typeof c.verilog === 'string' && Buffer.byteLength(c.verilog, 'utf8') > MAX_COMPONENT_CODE_BYTES) {
+      return Response.json({ ok: false, stage: "input", log: `Component "${c.id || '?'}" Verilog exceeds ${MAX_COMPONENT_CODE_BYTES / 1024} KiB.` }, { status: 400 });
+    }
+  }
+
   let cstResult = null;
   let sdcResult = null;
   let diagnostics = [];
@@ -127,8 +156,19 @@ export async function POST(request) {
     const cstArg = cstResult || { ioPins: new Map(), ioAttrs: new Map() };
     const sdcArg = sdcResult || { clocks: new Map() };
     diagnostics = checkConstraints(cstArg, sdcArg, code, TangNano9kBoard.pins);
+    const topPorts = (stimuli.length || components.length || wires.length) ? getTopPorts(code) : [];
     if (stimuli.length) {
-      diagnostics = diagnostics.concat(validateStimuli(stimuli, getTopPorts(code)));
+      // Pass components so "<compId>.<pinName>" stimulus targets validate against
+      // chip input pins instead of being rejected as unknown design ports.
+      diagnostics = diagnostics.concat(validateStimuli(stimuli, topPorts, components));
+    }
+    if (components.length || wires.length) {
+      const designModNames = moduleNames(stripComments(code));
+      // topPorts enables DUT-output-vs-chip-output and stimulus-vs-chip driver
+      // conflict detection on board nets (net-level single-driver rule).
+      diagnostics = diagnostics.concat(
+        validateComponents(components, wires, designModNames, cstResult, stimuli, topPorts)
+      );
     }
     const hasError = diagnostics.some((d) => d.severity === 'error');
     if (hasError) {
@@ -141,7 +181,14 @@ export async function POST(request) {
   if (hasOwnTb) {
     source = code + "\n" + testbench;
   } else if (cst) {
-    source = code + "\n" + generateBoardHarness(code, cstResult, sdcResult, peripherals, opts, stimuli) + "\n" + getModels();
+    // Append each component's Verilog between the user design and the harness,
+    // so the harness can instantiate them as co-simulated modules in the same run.
+    const componentVerilog = components
+      .filter((c) => c && typeof c.verilog === 'string' && c.verilog.trim())
+      .map((c) => c.verilog)
+      .join('\n\n');
+    const harness = generateBoardHarness(code, cstResult, sdcResult, peripherals, opts, stimuli, components, wires);
+    source = [code, componentVerilog, harness, getModels()].filter(Boolean).join('\n');
   } else {
     source = hasTestbench(code) ? code : code + "\n" + generateTestbench(code, opts);
   }

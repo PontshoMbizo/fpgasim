@@ -1,13 +1,16 @@
 "use client";
 import React, { useState, useEffect, useRef } from 'react';
 import Editor from '@monaco-editor/react';
-import { Code2, Maximize2, List, SlidersHorizontal, Play, Loader, Send } from 'lucide-react';
+import { Code2, Maximize2, List, SlidersHorizontal, Play, Loader, Send, Save, FolderOpen } from 'lucide-react';
 import PaneHeader from './ui/PaneHeader';
 import { useSim } from '../lib/simState';
 import { DEFAULT_DESIGN, DEFAULT_TESTBENCH } from '../lib/templateDefaults';
 import { sendResult, extractChanges } from '../lib/scopeioBridge';
 import { functionToSamples } from '../lib/stimulusSampling';
 import { parsePorts, pickTop, moduleNames, stripComments } from '../lib/testbench';
+import { buildSnapshot, parseSnapshot } from '../lib/snapshot';
+
+const MAX_LOAD_BYTES = 2 * 1024 * 1024; // 2 MB cap for snapshot files
 
 // Editor tabs. "design" is always available; the rest are revealed by Advanced mode.
 const BASIC_TABS = ['design'];
@@ -34,7 +37,7 @@ export default function EditorPane({ templates, embedMode, isFullscreen, onFulls
   const [activeTab, setActiveTab] = useState('design'); // 'design' | 'testbench' | 'cst' | 'sdc'
   const [durationNs, setDurationNs] = useState(2000000); // 2ms default
 
-  const { setModel, setDiagnostics, setPeripheralOutputs, advanced, setAdvanced, stimuli, setDesignPorts } = useSim();
+  const { setModel, setDiagnostics, setPeripheralOutputs, advanced, setAdvanced, stimuli, setStimuli, setDesignPorts, components, setComponents, wires, setWires } = useSim();
   const [running, setRunning] = useState(false);
   const [status, setStatus] = useState(null); // { ok, text }
 
@@ -98,6 +101,17 @@ export default function EditorPane({ templates, embedMode, isFullscreen, onFulls
         : s));
   };
 
+  // Components/wires only apply on the cst path (same rule as stimuli).
+  // Do not send when the user's own testbench is set (route rejects it anyway).
+  const resolveComponents = () => {
+    if (!advanced || !cst.trim() || !components.length) return undefined;
+    return components;
+  };
+  const resolveWires = () => {
+    if (!advanced || !cst.trim() || !wires.length) return undefined;
+    return wires;
+  };
+
   // Shared by the Run button and the embed action button: sends the source to
   // the sandboxed Icarus Verilog backend and flows a successful VCD into the
   // shared model. Returns the raw /api/simulate response.
@@ -110,6 +124,8 @@ export default function EditorPane({ templates, embedMode, isFullscreen, onFulls
       opts: { durationNs },
       peripherals: ['uart', 'flash', 'sd', 'hdmi'],
       stimuli: resolveStimuli(),
+      components: resolveComponents(),
+      wires: resolveWires(),
     };
 
     const res = await fetch('/api/simulate', {
@@ -125,10 +141,84 @@ export default function EditorPane({ templates, embedMode, isFullscreen, onFulls
     return { data, model };
   };
 
+  // File input ref for Load snapshot — hidden input, triggered programmatically.
+  const loadInputRef = useRef(null);
+
+  const handleSave = () => {
+    // Derive the top module name for the filename.
+    const clean = stripComments(code);
+    const names = moduleNames(clean);
+    const top = names.length ? pickTop(clean, names) : null;
+    const filename = (top || 'design') + '.nikav.json';
+
+    const snapshot = buildSnapshot({
+      design: code,
+      testbench,
+      cst,
+      sdc,
+      durationNs,
+      peripherals: ['uart', 'flash', 'sd', 'hdmi'],
+      stimuli,
+      components,
+      wires,
+    });
+
+    const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleLoadFile = (e) => {
+    const file = e.target.files?.[0];
+    // Reset so the same file can be re-selected after an error.
+    if (loadInputRef.current) loadInputRef.current.value = '';
+    if (!file) return;
+    if (file.size > MAX_LOAD_BYTES) {
+      setStatus({ ok: false, text: `Snapshot file too large (${(file.size / 1024).toFixed(0)} KB). Max 2 MB.` });
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const result = parseSnapshot(ev.target.result);
+      if (!result.ok) {
+        // Non-destructive: report errors without touching state.
+        setStatus({ ok: false, text: 'Snapshot load failed: ' + (result.errors || []).join('; ') });
+        return;
+      }
+      const s = result.snapshot;
+      // Hydrate all editor tabs.
+      setCode(s.design ?? '');
+      setTestbench(s.testbench ?? '');
+      setCst(s.cst ?? '');
+      setSdc(s.sdc ?? '');
+      if (typeof s.durationNs === 'number') setDurationNs(s.durationNs);
+      // Hydrate context: stimuli, components, wires.
+      setStimuli(Array.isArray(s.stimuli) ? s.stimuli : []);
+      setComponents(Array.isArray(s.components) ? s.components : []);
+      setWires(Array.isArray(s.wires) ? s.wires : []);
+      setStatus({ ok: true, text: 'Snapshot loaded.' });
+    };
+    reader.onerror = () => {
+      setStatus({ ok: false, text: 'Could not read snapshot file.' });
+    };
+    reader.readAsText(file);
+  };
+
   const handleRun = async () => {
     if (running) return;
     setRunning(true);
     setStatus(null);
+    // Friendly pre-flight: if components exist but CST is empty, surface a clear
+    // message instead of letting the route return a raw 400.
+    if (advanced && components.length > 0 && !cst.trim()) {
+      setStatus({ ok: false, text: 'Components require a board constraints file (.cst). Open the CST tab and add your pin assignments before running.' });
+      setRunning(false);
+      return;
+    }
     try {
       const { data, model } = await runSimulation();
       if (data.ok) {
@@ -207,18 +297,44 @@ export default function EditorPane({ templates, embedMode, isFullscreen, onFulls
         </div>
         <div className="flex items-center gap-3 text-text-muted">
           {advanced && (
-            <select
-              value={durationNs}
-              onChange={e => setDurationNs(Number(e.target.value))}
-              className="bg-edge/50 border border-edge text-text-primary text-[12px] rounded px-1.5 py-1 outline-none"
-              title="Simulation duration"
-            >
-              <option value={100000}>100 µs</option>
-              <option value={500000}>500 µs</option>
-              <option value={2000000}>2 ms</option>
-              <option value={10000000}>10 ms</option>
-              <option value={33333333}>33 ms (1 frame)</option>
-            </select>
+            <>
+              <select
+                value={durationNs}
+                onChange={e => setDurationNs(Number(e.target.value))}
+                className="bg-edge/50 border border-edge text-text-primary text-[12px] rounded px-1.5 py-1 outline-none"
+                title="Simulation duration"
+              >
+                <option value={100000}>100 µs</option>
+                <option value={500000}>500 µs</option>
+                <option value={2000000}>2 ms</option>
+                <option value={10000000}>10 ms</option>
+                <option value={33333333}>33 ms (1 frame)</option>
+              </select>
+              {/* Save / Load snapshot */}
+              <button
+                onClick={handleSave}
+                className="flex items-center gap-1 px-2 py-1 rounded text-[12px] text-text-secondary hover:bg-edge/60 transition-colors"
+                title="Save snapshot (.nikav.json)"
+              >
+                <Save size={13} />
+                Save
+              </button>
+              <button
+                onClick={() => loadInputRef.current?.click()}
+                className="flex items-center gap-1 px-2 py-1 rounded text-[12px] text-text-secondary hover:bg-edge/60 transition-colors"
+                title="Load snapshot (.nikav.json)"
+              >
+                <FolderOpen size={13} />
+                Load
+              </button>
+              <input
+                ref={loadInputRef}
+                type="file"
+                accept=".json,application/json"
+                className="hidden"
+                onChange={handleLoadFile}
+              />
+            </>
           )}
           <button
             onClick={() => setAdvanced(!advanced)}

@@ -9,7 +9,7 @@
     "start": "next start",
     "lint": "eslint",
     "test": "node --test test/*.test.mjs",
-    "test:unit": "node --test test/vcd.test.mjs test/testbench.test.mjs test/constraints.test.mjs test/board.test.mjs test/boardRules.test.mjs test/boardHarness.test.mjs test/stimulus.test.mjs test/stimulusSampling.test.mjs",
+    "test:unit": "node --test test/vcd.test.mjs test/testbench.test.mjs test/constraints.test.mjs test/board.test.mjs test/boardRules.test.mjs test/boardHarness.test.mjs test/stimulus.test.mjs test/stimulusSampling.test.mjs test/components.test.mjs test/snapshot.test.mjs test/chipGeometry.test.mjs",
     "build:lib": "tsup"
   },
   "dependencies": {
