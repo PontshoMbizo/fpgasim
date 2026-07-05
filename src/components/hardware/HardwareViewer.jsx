@@ -1,11 +1,14 @@
 "use client";
 import React, { useState, useMemo } from "react";
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
+import { Zap } from "lucide-react";
 
 // Components
 import BoardImage from "./BoardImage";
 import ComponentOverlay from "./ComponentOverlay";
 import PinOverlay from "./PinOverlay";
+import StimulusOverlay from "./StimulusOverlay";
+import StimulusConfigPanel from "./StimulusConfigPanel";
 import SearchPanel from "./SearchPanel";
 import FloatingInspector from "./FloatingInspector";
 import Legend from "./Legend";
@@ -19,7 +22,15 @@ export default function HardwareViewer({ board }) {
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [layer, setLayer] = useState("ALL");
 
-  const { pinStates } = useSim();
+  const { pinStates, advanced, stimuli, setStimuli, designPorts } = useSim();
+
+  // Stimulus panel UI state — lives here (not in StimulusConfigPanel) so a click on
+  // either a board pin's "+" affordance or an existing StimulusOverlay marker can open
+  // the panel already focused on the right block.
+  const [stimulusPanelOpen, setStimulusPanelOpen] = useState(false);
+  const [pendingTarget, setPendingTarget] = useState(null);
+  const [pendingEditId, setPendingEditId] = useState(null);
+  const [hoveredStimulusId, setHoveredStimulusId] = useState(null);
 
   // Memoize so a falsy board.pins/components doesn't create a new [] each render
   // (which would destabilize the useMemo deps below).
@@ -27,6 +38,23 @@ export default function HardwareViewer({ board }) {
   const COMPONENTS = useMemo(() => board?.components || [], [board?.components]);
   const BOARD_WIDTH = board?.width || 1200;
   const BOARD_HEIGHT = board?.height || 700;
+
+  // net (port name) -> pin id, from the board's default full pin map, and its inverse
+  // for resolving "which port does this physical pin correspond to". Stimulus markers
+  // only anchor to pins covered by this default map (the standard demo net names); a
+  // stimulus on a custom port with no board mapping has no on-board anchor and is only
+  // reachable/editable via the panel's own list.
+  const pinToNet = useMemo(() => {
+    const inv = {};
+    for (const [net, pinId] of Object.entries(board?.pinAssignments || {})) inv[pinId] = net;
+    return inv;
+  }, [board?.pinAssignments]);
+
+  const stimulusByTarget = useMemo(() => {
+    const map = {};
+    for (const s of stimuli) map[s.target] = s;
+    return map;
+  }, [stimuli]);
 
   // Distinct layers present in the data drive the filter dropdown.
   const layers = useMemo(
@@ -99,6 +127,9 @@ export default function HardwareViewer({ board }) {
                   pin.id !== hoveredPin?.id &&
                   pin.special.some((s) => highlightedNet.includes(s));
 
+                const net = pinToNet[pin.id];
+                const canAddStimulus = advanced && !!net && !stimulusByTarget[net];
+
                 return (
                   <PinOverlay
                     key={pin.id}
@@ -109,12 +140,63 @@ export default function HardwareViewer({ board }) {
                     isHighlighted={isHighlighted}
                     onHover={() => setHoveredPin(pin)}
                     onLeave={() => setHoveredPin(null)}
+                    canAddStimulus={canAddStimulus}
+                    onAddStimulus={() => {
+                      setPendingTarget(net);
+                      setStimulusPanelOpen(true);
+                    }}
+                  />
+                );
+              })}
+
+              {/* Markers for stimulus blocks whose target resolves to a physical pin
+                  via the board's default net map. Blocks on custom/unmapped ports are
+                  only reachable through the panel's list. */}
+              {advanced && stimuli.map((s) => {
+                const pinId = board?.pinAssignments?.[s.target];
+                const pin = pinId ? PINS.find((p) => p.id === pinId) : null;
+                if (!pin) return null;
+                return (
+                  <StimulusOverlay
+                    key={s.id}
+                    stimulus={s}
+                    pin={pin}
+                    isHovered={hoveredStimulusId === s.id}
+                    onHover={() => setHoveredStimulusId(s.id)}
+                    onLeave={() => setHoveredStimulusId(null)}
+                    onClick={() => { setPendingEditId(s.id); setStimulusPanelOpen(true); }}
                   />
                 );
               })}
             </svg>
           </TransformComponent>
         </TransformWrapper>
+
+        {advanced && (
+          <button
+            onClick={() => setStimulusPanelOpen((v) => !v)}
+            className={`absolute top-2 right-2 z-20 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[12px] font-medium border transition-colors ${
+              stimulusPanelOpen ? 'bg-accent text-white border-accent' : 'bg-panel text-text-secondary border-edge hover:bg-hover'
+            }`}
+            title="Signal Sources — visual stimulus blocks"
+          >
+            <Zap size={13} />
+            Signal Sources{stimuli.length ? ` (${stimuli.length})` : ''}
+          </button>
+        )}
+
+        {advanced && stimulusPanelOpen && (
+          <StimulusConfigPanel
+            stimuli={stimuli}
+            setStimuli={setStimuli}
+            ports={designPorts}
+            onClose={() => setStimulusPanelOpen(false)}
+            initialTarget={pendingTarget}
+            onConsumeInitialTarget={() => setPendingTarget(null)}
+            initialEditId={pendingEditId}
+            onConsumeInitialEditId={() => setPendingEditId(null)}
+          />
+        )}
 
         <Legend />
       </div>

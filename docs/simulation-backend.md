@@ -40,6 +40,26 @@ Request: `{ "code": "<verilog source>", "testbench"?: "<verilog testbench>" }`
 `testbench` is optional. When present and non-empty it is appended to `code` and used
 verbatim (auto stimulus is skipped). The combined size is bounded by the same cap.
 
+### Stimulus blocks (`stimuli`)
+
+`stimuli?: StimulusDescriptor[]` — visual signal sources targeting a top-level input
+port (see [board-emulation.md](board-emulation.md#stimulus-blocks-advanced-mode) for the
+user-facing model). Only meaningful on the `cst` path: `generateBoardHarness` accepts it
+as a 6th argument and splices per-block Verilog into the compiled testbench
+(`generateStimulusDrivers` in `src/lib/testbench.js`). Requires a non-empty `cst` and no
+explicit `testbench` — the route 400s otherwise, since a stimulus block has no effect
+along either of those other paths.
+
+Wire-format kinds are `preset | samples | verilog` (a client-authored `function` kind is
+reduced to `samples` before the request is sent — see `src/lib/stimulusSampling.js`).
+Validation (`src/lib/stimulusSchema.js`'s `validateStimuli`) checks target existence,
+input direction, and no two blocks claiming the same port, and enforces `MAX_STIMULI`
+(16), `MAX_SAMPLES_PER_STIMULUS` (4096), and `MAX_SAMPLES_TOTAL` (8192) — folded into the
+same `diagnostics` array `.cst`/`.sdc` validation already returns. A late
+`Buffer.byteLength(source)` check (after harness generation, before `runSimulation`)
+guards the combined-source cap since stimulus text adds to the generated harness, not
+just the raw `code`/`testbench` the early check covers.
+
 Response (always HTTP 200 on a completed run; 4xx for bad input / limits):
 
 | field   | type    | meaning                                                        |

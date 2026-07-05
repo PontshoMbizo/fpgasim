@@ -5,11 +5,12 @@
 import fs from 'fs';
 import path from 'path';
 import { runSimulation } from "@/lib/sandbox";
-import { generateTestbench, generateBoardHarness, hasTestbench } from "@/lib/testbench";
+import { generateTestbench, generateBoardHarness, hasTestbench, parsePorts, pickTop, moduleNames, stripComments } from "@/lib/testbench";
 import { parseCst } from "@/lib/constraints";
 import { parseSdc } from "@/lib/sdc";
 import { checkConstraints } from "@/lib/constraintCheck";
 import { TangNano9kBoard } from "@/boards/tangnano9k";
+import { validateStimuli, MAX_STIMULI } from "@/lib/stimulusSchema";
 
 const MAX_CODE_BYTES = 200 * 1024; // reject oversized source outright
 const MAX_CONCURRENT = Number(process.env.SIM_MAX_CONCURRENT || 4);
@@ -25,6 +26,16 @@ function rateLimited(ip) {
   arr.push(now);
   hits.set(ip, arr);
   return arr.length > RATE_PER_MIN;
+}
+
+// Best-effort top-module port list, for validating stimulus targets before compiling.
+// Mirrors generateBoardHarness's own top-picking logic (src/lib/testbench.js).
+function getTopPorts(code) {
+  const clean = stripComments(code);
+  const names = moduleNames(clean);
+  if (names.length === 0) return [];
+  const top = pickTop(clean, names);
+  return parsePorts(clean, top);
 }
 
 // Lazy load models
@@ -55,7 +66,7 @@ export async function POST(request) {
     return Response.json({ ok: false, stage: "busy", log: "Simulator busy; try again shortly." }, { status: 429 });
   }
 
-  let code, testbench, cst, sdc, peripherals, opts;
+  let code, testbench, cst, sdc, peripherals, opts, stimuli;
   try {
     const body = await request.json();
     code = body.code;
@@ -64,6 +75,7 @@ export async function POST(request) {
     sdc = body.sdc;
     peripherals = body.peripherals || [];
     opts = body.opts || {};
+    stimuli = body.stimuli || [];
   } catch {
     return Response.json({ ok: false, stage: "input", log: "Invalid JSON body." }, { status: 400 });
   }
@@ -76,6 +88,19 @@ export async function POST(request) {
   }
   if (Buffer.byteLength(code, "utf8") + Buffer.byteLength(hasOwnTb ? testbench : "", "utf8") > MAX_CODE_BYTES) {
     return Response.json({ ok: false, stage: "input", log: "Source too large." }, { status: 413 });
+  }
+
+  if (!Array.isArray(stimuli)) {
+    return Response.json({ ok: false, stage: "input", log: "`stimuli` must be an array." }, { status: 400 });
+  }
+  if (stimuli.length > MAX_STIMULI) {
+    return Response.json({ ok: false, stage: "input", log: `Too many stimulus blocks (max ${MAX_STIMULI}).` }, { status: 400 });
+  }
+  if (stimuli.length && hasOwnTb) {
+    return Response.json({ ok: false, stage: "input", log: "`stimuli` has no effect alongside an explicit `testbench` — remove one." }, { status: 400 });
+  }
+  if (stimuli.length && !cst) {
+    return Response.json({ ok: false, stage: "input", log: "`stimuli` requires board constraints (`cst`) — the board harness is what wires stimulus blocks in." }, { status: 400 });
   }
 
   let cstResult = null;
@@ -102,6 +127,9 @@ export async function POST(request) {
     const cstArg = cstResult || { ioPins: new Map(), ioAttrs: new Map() };
     const sdcArg = sdcResult || { clocks: new Map() };
     diagnostics = checkConstraints(cstArg, sdcArg, code, TangNano9kBoard.pins);
+    if (stimuli.length) {
+      diagnostics = diagnostics.concat(validateStimuli(stimuli, getTopPorts(code)));
+    }
     const hasError = diagnostics.some((d) => d.severity === 'error');
     if (hasError) {
       return Response.json({ ok: false, stage: "validation", diagnostics, log: "Board constraint validation failed." });
@@ -113,9 +141,15 @@ export async function POST(request) {
   if (hasOwnTb) {
     source = code + "\n" + testbench;
   } else if (cst) {
-    source = code + "\n" + generateBoardHarness(code, cstResult, sdcResult, peripherals, opts) + "\n" + getModels();
+    source = code + "\n" + generateBoardHarness(code, cstResult, sdcResult, peripherals, opts, stimuli) + "\n" + getModels();
   } else {
     source = hasTestbench(code) ? code : code + "\n" + generateTestbench(code, opts);
+  }
+
+  // Late safety check: the early MAX_CODE_BYTES check above only covers raw
+  // code+testbench, not the generated harness/models/stimuli text.
+  if (Buffer.byteLength(source, "utf8") > MAX_CODE_BYTES) {
+    return Response.json({ ok: false, stage: "input", log: "Generated source too large." }, { status: 413 });
   }
 
   inFlight++;

@@ -148,6 +148,39 @@ frame. One frame is captured and written as a PPM, surfaced in the HDMI pane.
 
 ---
 
+## Stimulus blocks (Advanced mode)
+
+Beyond the fixed clock/button/peripheral heuristics above, **Advanced mode** lets you
+attach visual "stimulus" blocks to any top-level input port — a circuitjs-style signal
+source, rather than a hand-written testbench. Open **Signal Sources** in the Hardware
+view (visible once Advanced is on) to add one. Each block appears as a small ⚡ marker
+on the board when its target port maps to a physical pin via the board's default net
+map; blocks on custom/unmapped ports (e.g. an `antenna_in` port you declared yourself)
+are only listed in the panel, not drawn on the board image.
+
+A block drives its target port with one of four authoring modes:
+
+| Kind | What you author | How it compiles |
+|------|------------------|------------------|
+| **Preset** | Pick from a bank: clock/PWM, button press, UART byte stream, sine, square, ramp, step, PRBS/noise. | A native Verilog `initial`/`always` recurrence — runs for the whole sim duration, no sample limit. |
+| **Samples** | A fixed-rate list of numeric values (paste or type them in). | Packed into one flattened Verilog constant, stepped through by an indexed part-select — capped at 4096 samples per block. |
+| **Function** | A named generator (sine/square/triangle/ramp/noise) with numeric params, duration, and sample rate. | Reduced to the same fixed-rate sample list **in the browser** before the request is sent — no user math ever runs server-side. |
+| **Verilog** | Raw Verilog: either a procedural block writing to the port, or a full module + instantiation. | Spliced into the compiled testbench verbatim, same trust boundary as the Design tab. |
+
+A stimulus fully replaces the harness's own default behaviour for its target port — e.g.
+a stimulus on `btn1` suppresses the default button-pulse schedule, and a stimulus on the
+clock port suppresses the default 27 MHz driver. Stimulus blocks require a `.cst` (they
+apply on the board-harness path) and have no effect alongside an explicit hand-written
+Testbench.
+
+Codegen lives in `generateStimulusDrivers`/`generateBoardHarness`
+(`src/lib/testbench.js`); the wire-format contract and size caps (`MAX_STIMULI`,
+`MAX_SAMPLES_PER_STIMULUS`, `MAX_SAMPLES_TOTAL`) are in `src/lib/stimulusSchema.js`. See
+[simulation-backend.md](simulation-backend.md#stimulus-blocks-api) for the `/api/simulate`
+contract.
+
+---
+
 ## Validation diagnostics
 
 When a `.cst`/`.sdc` is present the constraints are checked against the board before the
@@ -214,7 +247,8 @@ sandbox internals and `/api/simulate` contract.
 
 Relevant test files: `test/constraints.test.mjs`, `test/board.test.mjs`,
 `test/boardRules.test.mjs`, `test/boardHarness.test.mjs`,
-`test/board.integration.test.mjs`. Build the sandbox image once with:
+`test/board.integration.test.mjs`, `test/stimulus.test.mjs`,
+`test/stimulusSampling.test.mjs`. Build the sandbox image once with:
 
 ```
 docker build -t nika-sim -f Dockerfile.sim sim/

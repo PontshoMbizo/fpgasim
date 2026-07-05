@@ -1,7 +1,7 @@
 import React from 'react';
 import { COLORS, STATE_COLORS } from '../../lib/theme';
 
-export default function PinOverlay({ pin, state, pinFunction, isHovered, isHighlighted, onHover, onLeave }) {
+export default function PinOverlay({ pin, state, pinFunction, isHovered, isHighlighted, onHover, onLeave, canAddStimulus, onAddStimulus }) {
   // Driven pins are colored by their simulated state; undriven pins are neutral.
   const stateColor = state ? STATE_COLORS[state] : null;
   const fill = isHovered ? COLORS.info : stateColor || COLORS.textSecondary;
@@ -37,6 +37,18 @@ export default function PinOverlay({ pin, state, pinFunction, isHovered, isHighl
         stroke={stroke}
         strokeWidth="1.5"
       />
+
+      {/* Advanced-mode-only "add a stimulus block here" affordance, shown on hover for
+          pins not already claimed by a stimulus block. */}
+      {isHovered && canAddStimulus && (
+        <g
+          onClick={(e) => { e.stopPropagation(); onAddStimulus(); }}
+          className="cursor-pointer"
+        >
+          <circle cx={pin.x + 12} cy={pin.y - 12} r="7" fill={COLORS.accent} />
+          <text x={pin.x + 12} y={pin.y - 9} textAnchor="middle" fontSize="10" fontWeight="bold" fill={COLORS.base}>+</text>
+        </g>
+      )}
     </g>
   );
 }

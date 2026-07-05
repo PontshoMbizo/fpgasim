@@ -98,6 +98,16 @@ export function SimProvider({ children, board }) {
   // UART/HDMI peripheral views. Off by default so the basic flow is just Design + Run.
   const [advanced, setAdvanced] = useState(false);
 
+  // Visual stimulus blocks (advanced-mode only) — lives here rather than in EditorPane
+  // because both EditorPane (serializes into the /api/simulate payload) and the
+  // hardware view (renders a marker per block) need read/write access.
+  const [stimuli, setStimuli] = useState([]);
+
+  // The current design's top-module port list ({dir,width,name,range}[]), kept in sync
+  // by EditorPane on every code change. Lets the hardware view's stimulus config UI
+  // populate a "target port" picker without needing the raw Verilog source itself.
+  const [designPorts, setDesignPorts] = useState([]);
+
   // Accepts a raw VCD string, a full model, or a bare signals array. Returns the
   // parsed model so callers can read e.g. signal count immediately.
   const setModel = (input) => {
@@ -124,9 +134,13 @@ export function SimProvider({ children, board }) {
       peripheralOutputs,
       setPeripheralOutputs,
       advanced,
-      setAdvanced
+      setAdvanced,
+      stimuli,
+      setStimuli,
+      designPorts,
+      setDesignPorts
     }),
-    [model, timeCursor, pinStates, board, diagnostics, peripheralOutputs, advanced]
+    [model, timeCursor, pinStates, board, diagnostics, peripheralOutputs, advanced, stimuli, designPorts]
   );
   return <SimContext.Provider value={value}>{children}</SimContext.Provider>;
 }

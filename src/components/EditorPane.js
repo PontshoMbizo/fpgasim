@@ -6,6 +6,8 @@ import PaneHeader from './ui/PaneHeader';
 import { useSim } from '../lib/simState';
 import { DEFAULT_DESIGN, DEFAULT_TESTBENCH } from '../lib/templateDefaults';
 import { sendResult, extractChanges } from '../lib/scopeioBridge';
+import { functionToSamples } from '../lib/stimulusSampling';
+import { parsePorts, pickTop, moduleNames, stripComments } from '../lib/testbench';
 
 // Editor tabs. "design" is always available; the rest are revealed by Advanced mode.
 const BASIC_TABS = ['design'];
@@ -32,7 +34,7 @@ export default function EditorPane({ templates, embedMode, isFullscreen, onFulls
   const [activeTab, setActiveTab] = useState('design'); // 'design' | 'testbench' | 'cst' | 'sdc'
   const [durationNs, setDurationNs] = useState(2000000); // 2ms default
 
-  const { setModel, setDiagnostics, setPeripheralOutputs, advanced, setAdvanced } = useSim();
+  const { setModel, setDiagnostics, setPeripheralOutputs, advanced, setAdvanced, stimuli, setDesignPorts } = useSim();
   const [running, setRunning] = useState(false);
   const [status, setStatus] = useState(null); // { ok, text }
 
@@ -61,6 +63,41 @@ export default function EditorPane({ templates, embedMode, isFullscreen, onFulls
     if (embedMode.duration != null) setDurationNs(embedMode.duration);
   }, [embedMode]);
 
+  // Keep the shared designPorts list (SimProvider) in sync with the Design tab so the
+  // Hardware view's stimulus config UI can offer a "target port" picker without
+  // needing the raw Verilog source itself.
+  useEffect(() => {
+    const clean = stripComments(code);
+    const names = moduleNames(clean);
+    const top = names.length ? pickTop(clean, names) : null;
+    setDesignPorts(top ? parsePorts(clean, top) : []);
+  }, [code, setDesignPorts]);
+
+  // Width of a top-level port by name, for sizing a `function`-kind stimulus's
+  // reduced sample values (see resolveStimuli below). Best-effort — same regex-based
+  // parsing testbench.js itself uses to build the board harness.
+  const getPortWidth = (name) => {
+    const clean = stripComments(code);
+    const names = moduleNames(clean);
+    if (names.length === 0) return 1;
+    const top = pickTop(clean, names);
+    const port = parsePorts(clean, top).find((p) => p.name === name);
+    return port?.width ?? 1;
+  };
+
+  // Stimulus blocks only apply on the board-harness path (advanced mode + a non-empty
+  // .cst — see docs/board-emulation.md's precedence chain) and only ever leave the
+  // browser as wire-format kinds: 'function' blocks are reduced to 'samples' here so
+  // no user-authored math ever has to be evaluated server-side.
+  const resolveStimuli = () => {
+    if (!advanced || !cst.trim() || !stimuli.length) return undefined;
+    return stimuli
+      .filter((s) => s.enabled !== false)
+      .map((s) => (s.kind === 'function'
+        ? { ...s, kind: 'samples', samples: functionToSamples(s.function, getPortWidth(s.target)) }
+        : s));
+  };
+
   // Shared by the Run button and the embed action button: sends the source to
   // the sandboxed Icarus Verilog backend and flows a successful VCD into the
   // shared model. Returns the raw /api/simulate response.
@@ -71,7 +108,8 @@ export default function EditorPane({ templates, embedMode, isFullscreen, onFulls
       cst: cst.trim() ? cst : undefined,
       sdc: sdc.trim() ? sdc : undefined,
       opts: { durationNs },
-      peripherals: ['uart', 'flash', 'sd', 'hdmi']
+      peripherals: ['uart', 'flash', 'sd', 'hdmi'],
+      stimuli: resolveStimuli(),
     };
 
     const res = await fetch('/api/simulate', {

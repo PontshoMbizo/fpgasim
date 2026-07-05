@@ -6,7 +6,7 @@
 const DEFAULT_DURATION_NS = 2000;
 
 // Strip comments so they don't confuse the lightweight regex parsing.
-function stripComments(code) {
+export function stripComments(code) {
   return code
     .replace(/\/\*[\s\S]*?\*\//g, " ")
     .replace(/\/\/[^\n]*/g, " ");
@@ -18,7 +18,7 @@ export function hasTestbench(code) {
 }
 
 // All `module <name>` declarations, in order.
-function moduleNames(code) {
+export function moduleNames(code) {
   const names = [];
   const re = /\bmodule\s+([A-Za-z_]\w*)/g;
   let m;
@@ -28,7 +28,7 @@ function moduleNames(code) {
 
 // Pick the top module: prefer one literally named `top`; else the module not
 // instantiated by any other; else the first declared.
-function pickTop(code, names) {
+export function pickTop(code, names) {
   if (names.includes("top")) return "top";
   const instantiated = new Set();
   for (const n of names) {
@@ -41,7 +41,7 @@ function pickTop(code, names) {
 }
 
 // Parse the ANSI port header of `topName`: returns [{dir,width,name}].
-function parsePorts(code, topName) {
+export function parsePorts(code, topName) {
   const re = new RegExp(`\\bmodule\\s+${topName}\\s*(?:#\\s*\\([\\s\\S]*?\\))?\\s*\\(([\\s\\S]*?)\\)\\s*;`);
   const m = re.exec(code);
   if (!m) return [];
@@ -126,6 +126,274 @@ export const DEFAULT_BOARD_DURATION_NS = 2_000_000;
 // The 27 MHz board clock period.
 export const BOARD_CLOCK_PERIOD_NS = 1000 / 27; // ≈ 37.037 ns
 
+// ============================================================
+// STIMULUS BLOCKS (visual signal sources driving a DUT input port)
+// ============================================================
+//
+// Wire-format stimulus descriptors (kind: 'preset' | 'samples' | 'verilog' — 'function'
+// blocks are reduced to 'samples' client-side before reaching here, see
+// src/lib/stimulusSampling.js). Callers are expected to have already validated
+// descriptors against the port list (src/lib/stimulusSchema.js's validateStimuli) —
+// this function defensively skips anything that doesn't resolve rather than throwing,
+// so a bad block degrades to "not applied" instead of breaking the whole harness.
+
+// Formats an unsigned numeric value as a sized Verilog hex literal, e.g. (8, 255) -> "8'hff".
+function hexLiteral(width, value) {
+  const digits = Math.ceil(width / 4);
+  const masked = width > 32
+    ? (BigInt(Math.trunc(value)) & ((1n << BigInt(width)) - 1n)).toString(16)
+    : ((Math.trunc(value) >>> 0) & (width === 32 ? 0xffffffff : (2 ** width - 1))).toString(16);
+  return `${width}'h${masked.padStart(digits, '0')}`;
+}
+
+function stimClockTemplate(id, target, { periodNs = 20, dutyPct = 50 } = {}) {
+  const onNs = (periodNs * dutyPct / 100).toFixed(4);
+  const offNs = (periodNs * (100 - dutyPct) / 100).toFixed(4);
+  return {
+    decls: [],
+    block: [
+      `  // stimulus ${id}: clock/pwm on ${target} (period=${periodNs}ns duty=${dutyPct}%)`,
+      `  initial begin`,
+      `    ${target} = 1'b0;`,
+      `    forever begin`,
+      `      #${onNs} ${target} = 1'b1;`,
+      `      #${offNs} ${target} = 1'b0;`,
+      `    end`,
+      `  end`,
+    ].join('\n'),
+  };
+}
+
+function stimButtonTemplate(id, target, { pressAtNs = 200, holdNs = 50, repeatCount = 2, activeLow = true } = {}) {
+  const released = activeLow ? "1'b1" : "1'b0";
+  const pressed = activeLow ? "1'b0" : "1'b1";
+  return {
+    decls: [],
+    block: [
+      `  // stimulus ${id}: button pulse on ${target}`,
+      `  initial begin`,
+      `    ${target} = ${released}; // released`,
+      `    repeat (${repeatCount}) begin`,
+      `      #${pressAtNs} ${target} = ${pressed}; // press`,
+      `      #${holdNs} ${target} = ${released}; // release`,
+      `    end`,
+      `  end`,
+    ].join('\n'),
+  };
+}
+
+// Bit-bangs an 8N1 UART byte stream onto `target` (idle high, LSB-first data, one stop bit).
+function stimUartTemplate(id, target, { bytes = [], baudRate = 115200, startDelayNs = 100 } = {}) {
+  const bitNs = (1e9 / baudRate).toFixed(4);
+  const lines = [];
+  for (const byte of bytes.slice(0, 64)) {
+    lines.push(`    ${target} = 1'b0; #${bitNs}; // start`);
+    for (let bit = 0; bit < 8; bit++) {
+      const v = (byte >> bit) & 1;
+      lines.push(`    ${target} = 1'b${v}; #${bitNs}; // bit${bit}`);
+    }
+    lines.push(`    ${target} = 1'b1; #${bitNs}; // stop`);
+  }
+  return {
+    decls: [],
+    block: [
+      `  // stimulus ${id}: uart byte stream on ${target} (${baudRate} baud)`,
+      `  initial begin`,
+      `    ${target} = 1'b1; // idle`,
+      `    #${startDelayNs};`,
+      lines.join('\n'),
+      `  end`,
+    ].join('\n'),
+  };
+}
+
+// Continuous analog-style waveforms driven by a `real` phase accumulator. `shape`
+// selects the waveform expression; `width` sizes the target so the rtoi'd sample fits.
+function stimAnalogTemplate(id, target, width, shape, { amplitude = 100, offset = 128, freqHz = 1000, updateStepNs = 10 } = {}) {
+  const omegaPerStep = (2 * Math.PI * freqHz * updateStepNs * 1e-9).toFixed(8);
+  const thetaVar = `stim_${id}_theta`;
+  const valueExpr = shape === 'square'
+    ? `($sin(${thetaVar}) >= 0.0) ? (${offset} + ${amplitude}) : (${offset} - ${amplitude})`
+    : `${offset} + ${amplitude} * $sin(${thetaVar})`;
+  return {
+    decls: [`  real ${thetaVar};`],
+    block: [
+      `  // stimulus ${id}: ${shape} on ${target}`,
+      `  initial ${thetaVar} = 0;`,
+      `  always #${updateStepNs} begin`,
+      `    ${thetaVar} = ${thetaVar} + ${omegaPerStep};`,
+      `    ${target} = $rtoi(${valueExpr});`,
+      `  end`,
+    ].join('\n'),
+  };
+}
+
+// Linear ramp/sawtooth: accumulates by a fixed step each tick and wraps at the top.
+function stimRampTemplate(id, target, width, { minVal = 0, maxVal = 2 ** Math.min(width, 16) - 1, stepPerTick = 1, updateStepNs = 10 } = {}) {
+  const valVar = `stim_${id}_val`;
+  return {
+    decls: [`  integer ${valVar};`],
+    block: [
+      `  // stimulus ${id}: ramp on ${target}`,
+      `  initial ${valVar} = ${minVal};`,
+      `  always #${updateStepNs} begin`,
+      `    ${valVar} = ${valVar} + ${stepPerTick};`,
+      `    if (${valVar} > ${maxVal}) ${valVar} = ${minVal};`,
+      `    ${target} = ${valVar};`,
+      `  end`,
+    ].join('\n'),
+  };
+}
+
+// One-shot level transition at a fixed time.
+function stimStepTemplate(id, target, width, { lowVal = 0, highVal = 1, stepAtNs = 500 } = {}) {
+  return {
+    decls: [],
+    block: [
+      `  // stimulus ${id}: step on ${target}`,
+      `  initial begin`,
+      `    ${target} = ${hexLiteral(width, lowVal)};`,
+      `    #${stepAtNs} ${target} = ${hexLiteral(width, highVal)};`,
+      `  end`,
+    ].join('\n'),
+  };
+}
+
+// Pseudo-random bit stream via an 8-bit Fibonacci LFSR; only the LSB drives `target`.
+function stimPrbsTemplate(id, target, { seed = 0xac, updateStepNs = 20 } = {}) {
+  const lfsrVar = `stim_${id}_lfsr`;
+  return {
+    decls: [`  reg [7:0] ${lfsrVar};`],
+    block: [
+      `  // stimulus ${id}: prbs on ${target}`,
+      `  initial ${lfsrVar} = 8'h${seed.toString(16).padStart(2, '0')};`,
+      `  always #${updateStepNs} ${lfsrVar} = {${lfsrVar}[6:0], ${lfsrVar}[7] ^ ${lfsrVar}[5] ^ ${lfsrVar}[4] ^ ${lfsrVar}[3]};`,
+      `  assign ${target} = ${lfsrVar}[0];`,
+    ].join('\n'),
+  };
+}
+
+// Fixed-rate sample list, packed into one flattened concatenation constant and stepped
+// through with an indexed part-select — far more compact than a memory array with a
+// per-element assignment (see plan rationale: this keeps a 4096-sample block well under
+// the combined-source size cap) and avoids relying on SystemVerilog unpacked-array
+// literal assignment, which this project's Icarus build does not support.
+function stimSamplesTemplate(id, target, width, { values = [], stepNs = 100, startNs = 0, hold = 'last' } = {}) {
+  const n = values.length;
+  const romVar = `stim_${id}_rom`;
+  const idxVar = `stim_${id}_i`;
+  const concat = values.map((v) => hexLiteral(width, v)).join(', ');
+  const holdStmt = hold === 'last' ? '' : `    ${target} = ${hexLiteral(width, hold)};\n`;
+  return {
+    decls: [
+      `  localparam stim_${id}_n = ${n};`,
+      `  reg [stim_${id}_n*${width}-1:0] ${romVar} = {${concat}};`,
+      `  integer ${idxVar};`,
+    ],
+    block: [
+      `  // stimulus ${id}: ${n} samples @ ${stepNs}ns on ${target}`,
+      `  initial begin`,
+      `    #${startNs};`,
+      `    for (${idxVar} = 0; ${idxVar} < stim_${id}_n; ${idxVar} = ${idxVar} + 1) begin`,
+      `      ${target} = ${romVar}[(stim_${id}_n-1-${idxVar})*${width} +: ${width}];`,
+      `      #${stepNs};`,
+      `    end`,
+      holdStmt.trimEnd(),
+      `  end`,
+    ].filter(Boolean).join('\n'),
+  };
+}
+
+/**
+ * Turns validated stimulus block descriptors into Verilog fragments that drive DUT
+ * input ports. Reuses the same "declare it wire, skip default init" treatment
+ * generateBoardHarness already gives peripheral-model-driven inputs (e.g. flash miso).
+ *
+ * @param {object[]} stimuli  wire-format descriptors (kind: preset|samples|verilog)
+ * @param {object[]} ports    result of parsePorts() for the same design
+ * @returns {{decls:string[], blocks:string[], instances:string[],
+ *            drivenPorts:Set<string>, wireDrivenPorts:Set<string>, errors:string[]}}
+ */
+export function generateStimulusDrivers(stimuli = [], ports = []) {
+  const portsByName = new Map(ports.map((p) => [p.name, p]));
+  const decls = [];
+  const blocks = [];
+  const instances = [];
+  const drivenPorts = new Set();
+  const wireDrivenPorts = new Set();
+  const errors = [];
+
+  for (const s of stimuli) {
+    if (!s || s.enabled === false) continue;
+    const port = portsByName.get(s.target);
+    if (!port || port.dir !== 'input') {
+      errors.push(`Stimulus "${s.id}" target "${s.target}" is not an input port; skipped.`);
+      continue;
+    }
+    if (drivenPorts.has(s.target)) {
+      errors.push(`Stimulus "${s.id}" target "${s.target}" already driven by another block; skipped.`);
+      continue;
+    }
+    const width = port.width;
+    const target = s.target;
+
+    if (s.kind === 'preset') {
+      const p = s.preset || {};
+      let result;
+      switch (p.id) {
+        case 'clock':
+        case 'pwm':
+          result = stimClockTemplate(s.id, target, p.params);
+          break;
+        case 'button':
+          result = stimButtonTemplate(s.id, target, p.params);
+          break;
+        case 'uart':
+          result = stimUartTemplate(s.id, target, p.params);
+          break;
+        case 'sine':
+        case 'square':
+          result = stimAnalogTemplate(s.id, target, width, p.id, p.params);
+          break;
+        case 'ramp':
+          result = stimRampTemplate(s.id, target, width, p.params);
+          break;
+        case 'step':
+          result = stimStepTemplate(s.id, target, width, p.params);
+          break;
+        case 'prbs':
+          result = stimPrbsTemplate(s.id, target, p.params);
+          break;
+        default:
+          errors.push(`Stimulus "${s.id}" has unknown preset "${p.id}"; skipped.`);
+          continue;
+      }
+      decls.push(...result.decls);
+      blocks.push(result.block);
+      drivenPorts.add(target);
+      if (p.id === 'prbs') wireDrivenPorts.add(target); // driven via continuous assign
+    } else if (s.kind === 'samples') {
+      const result = stimSamplesTemplate(s.id, target, width, s.samples);
+      decls.push(...result.decls);
+      blocks.push(result.block);
+      drivenPorts.add(target);
+    } else if (s.kind === 'verilog') {
+      if (s.verilog?.mode === 'instance') {
+        instances.push(`  // stimulus ${s.id}: custom verilog instance driving ${target}\n${s.verilog.code}`);
+        drivenPorts.add(target);
+        wireDrivenPorts.add(target);
+      } else {
+        blocks.push(`  // stimulus ${s.id}: custom verilog on ${target}\n${s.verilog?.code || ''}`);
+        drivenPorts.add(target);
+      }
+    } else {
+      errors.push(`Stimulus "${s.id}" has unknown kind "${s.kind}"; skipped.`);
+    }
+  }
+
+  return { decls, blocks, instances, drivenPorts, wireDrivenPorts, errors };
+}
+
 /**
  * Generates a constraint-aware testbench that emulates the Tang Nano 9K board.
  *
@@ -134,6 +402,8 @@ export const BOARD_CLOCK_PERIOD_NS = 1000 / 27; // ≈ 37.037 ns
  *  - initialises all buttons active-HIGH (released / not pressed, active-LOW hardware)
  *  - pulses each button active-LOW twice during the simulation for stimulus coverage
  *  - wires peripheral models (uart_monitor, spi_flash, sd_spi, hdmi_sink) when requested
+ *  - wires visual stimulus blocks (see generateStimulusDrivers) that override the default
+ *    clock/button behaviour for their target port
  *  - dumps all harness nets and DUT ports into the VCD
  *
  * @param {string} code           Verilog source (design under test)
@@ -143,9 +413,10 @@ export const BOARD_CLOCK_PERIOD_NS = 1000 / 27; // ≈ 37.037 ns
  * @param {object} [opts]
  * @param {number} [opts.durationNs]  Simulation wall-time in ns. Default: 2 000 000 (2 ms)
  * @param {number} [opts.baudRate]    UART baud rate. Default: 115200
+ * @param {object[]} [stimuli]    Visual stimulus block descriptors, see generateStimulusDrivers
  * @returns {string} Verilog testbench source to concatenate after the design
  */
-export function generateBoardHarness(code, cstResult = null, sdcResult = null, peripherals = [], opts = {}) {
+export function generateBoardHarness(code, cstResult = null, sdcResult = null, peripherals = [], opts = {}, stimuli = []) {
   const durationNs = opts.durationNs ?? DEFAULT_BOARD_DURATION_NS;
   const baudRate   = opts.baudRate   ?? 115200;
 
@@ -168,13 +439,18 @@ export function generateBoardHarness(code, cstResult = null, sdcResult = null, p
   }
   const halfPeriod = (clockPeriodNs / 2).toFixed(4);
 
+  // ---- Stimulus blocks (visual signal sources targeting a DUT input port) ----
+  const stim = generateStimulusDrivers(stimuli, ports);
+
   // ---- Classify ports ----
   const inputs  = ports.filter(p => p.dir === 'input');
   const outputs = ports.filter(p => p.dir === 'output' || p.dir === 'inout');
 
-  // Identify well-known port roles by name heuristic
-  const clockPort  = inputs.find(p => isClock(p.name));
-  const btnPorts   = inputs.filter(p => /^btn/.test(p.name));
+  // Identify well-known port roles by name heuristic. A port claimed by a stimulus
+  // block is excluded from the default clock/button heuristics — the stimulus fully
+  // replaces that port's default drive behaviour.
+  const clockPort  = inputs.find(p => isClock(p.name) && !stim.drivenPorts.has(p.name));
+  const btnPorts   = inputs.filter(p => /^btn/.test(p.name) && !stim.drivenPorts.has(p.name));
   const uartTxPort = outputs.find(p => /tx/i.test(p.name));
   const uartRxPort = inputs.find(p => /rx/i.test(p.name));
   const flashPorts = {
@@ -196,10 +472,15 @@ export function generateBoardHarness(code, cstResult = null, sdcResult = null, p
 
   // Inputs that a peripheral MODEL drives (e.g. flash/SD MISO) must be nets, not regs:
   // the model output connects to them, so the harness must not declare them `reg` or
-  // initialise them (iverilog: "Unable to assign to unresolved wires").
+  // initialise them (iverilog: "Unable to assign to unresolved wires"). A stimulus
+  // block driven via a module instance (kind: verilog/instance, or the PRBS preset's
+  // continuous assign) needs the exact same treatment.
   const drivenInputs = new Set();
   if (wantFlash && flashPorts.miso) drivenInputs.add(flashPorts.miso);
   if (wantSd && sdPorts.miso) drivenInputs.add(sdPorts.miso);
+  for (const p of ports) {
+    if (stim.wireDrivenPorts.has(p.name)) drivenInputs.add(p);
+  }
 
   // ---- Build reg/wire declarations ----
   const decls = [];
@@ -231,9 +512,10 @@ export function generateBoardHarness(code, cstResult = null, sdcResult = null, p
     `    #500         ${p.name} = 1'b1; // release ${p.name}`,
   ]);
 
-  // Remaining input initialisation (non-clock, non-button, not model-driven)
+  // Remaining input initialisation (non-clock, non-button, not model-driven, not
+  // claimed by a stimulus block)
   const otherInits = inputs
-    .filter(p => p !== clockPort && !btnPorts.includes(p) && !drivenInputs.has(p))
+    .filter(p => p !== clockPort && !btnPorts.includes(p) && !drivenInputs.has(p) && !stim.drivenPorts.has(p.name))
     .map(p => `    ${p.name} = ${p.width}'b${'0'.repeat(p.width)}; // default low`);
 
   // ---- Peripheral instantiation blocks ----
@@ -304,10 +586,12 @@ export function generateBoardHarness(code, cstResult = null, sdcResult = null, p
     'module tb;',
     decls.join('\n'),
     peripheralDecls.join('\n'),
+    stim.decls.join('\n'),
     '',
     `  ${top} dut (${conns.join(', ')});`,
     '',
     peripheralInst.join('\n'),
+    stim.instances.join('\n\n'),
     '',
     clockBlock,
     '  initial begin',
@@ -318,6 +602,7 @@ export function generateBoardHarness(code, cstResult = null, sdcResult = null, p
     btnStimulus.join('\n'),
     `    #${durationNs} $finish;`,
     '  end',
+    stim.blocks.join('\n\n'),
     'endmodule',
     '',
   ].join('\n');
