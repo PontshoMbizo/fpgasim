@@ -36,9 +36,10 @@ function runArgs(name) {
     "--network", "none",
     "--read-only",
     // uid=/gid= tmpfs mount opts dropped (VM-local, 2026-07-01): unsupported by the
-    // host's podman 3.4.2 ("unknown mount option"). Default tmpfs perms (1777,
-    // root:root, world-writable sticky) still let --user 1000:1000 write to /work.
-    "--tmpfs", "/work:rw,size=64m,noexec,nosuid,nodev",
+    // host's podman 3.4.2 ("unknown mount option"). mode=1777 is set explicitly since
+    // some runtimes default tmpfs to 0755 root:root, which blocks --user 1000:1000
+    // from writing to /work at all.
+    "--tmpfs", "/work:rw,size=64m,noexec,nosuid,nodev,mode=1777",
     "--cap-drop", "ALL",
     "--security-opt", "no-new-privileges",
     "--pids-limit", "64",
