@@ -10,7 +10,8 @@ RUN apk add --no-cache iverilog
 RUN adduser -D -u 1000 sim
 
 COPY entrypoint.sh /usr/local/bin/run-sim
-RUN chmod +x /usr/local/bin/run-sim
+COPY entrypoint-lockstep.sh /usr/local/bin/run-lockstep
+RUN chmod +x /usr/local/bin/run-sim /usr/local/bin/run-lockstep
 
 USER sim
 WORKDIR /work
