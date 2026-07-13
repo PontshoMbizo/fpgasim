@@ -1,4 +1,4 @@
-# AGENTS.md — nikaVSimulator
+# AGENTS.md — fpgasim
 
 ## What this is
 
@@ -6,9 +6,9 @@ An in-browser simulator for the **Tang Nano 9K FPGA**: the user writes Verilog i
 editor, it runs through `iverilog`/`vvp` in a locked-down sandbox, and the resulting VCD
 drives a waveform pane plus a live interactive board view.
 
-This project is the **template stmVSimulator was built from** — the two share their shape
+This project is the **template mcusim was built from** — the two share their shape
 deliberately (Next.js app, `src/app/api/simulate/route.js` contract, board data files,
-sandbox posture). See `../stmVSimulator/CLAUDE.md` for that shared shape; keep the two
+sandbox posture). See `../mcusim/CLAUDE.md` for that shared shape; keep the two
 aligned when changing anything structural.
 
 ## Definition of done
@@ -18,7 +18,7 @@ aligned when changing anything structural.
   (compile → vvp → VCD → waveform + board view) and sanity-check the output.
 - Sandbox posture unchanged — ephemeral, no network, read-only FS, non-root,
   resource-capped, auto-killed.
-- Structural changes are checked against stmVSimulator: either mirrored there or the
+- Structural changes are checked against mcusim: either mirrored there or the
   divergence is deliberate and noted.
 
 ## Pointers
