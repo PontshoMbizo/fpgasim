@@ -34,7 +34,7 @@ function remotePrefix() {
   return RUNTIME === "podman" && PODMAN_URL ? ["--remote", "--url", PODMAN_URL] : [];
 }
 
-function containerArgs(name) {
+function containerArgs(name, image) {
   return [
     ...remotePrefix(),
     "run", "--rm", "-i",
@@ -52,7 +52,7 @@ function containerArgs(name) {
     "--workdir", "/work",
     "--env", "TMPDIR=/work",
     "--entrypoint", "/usr/local/bin/run-lockstep",
-    IMAGE,
+    image || IMAGE,
   ];
 }
 
@@ -76,7 +76,7 @@ export class LockstepSession {
     this.stderrTail = [];
     this._lineBuf = "";
 
-    const argv = opts.command ?? [RUNTIME, ...containerArgs(this.name)];
+    const argv = opts.command ?? [RUNTIME, ...containerArgs(this.name, opts.image)];
     this.child = spawn(argv[0], argv.slice(1), { stdio: ["pipe", "pipe", "pipe"] });
 
     this.child.stdout.setEncoding("utf8");

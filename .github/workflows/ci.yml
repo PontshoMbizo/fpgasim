@@ -35,8 +35,14 @@ jobs:
     - name: Run linting
       run: npm run lint
 
+    - name: Install iverilog (enables the gated lockstep vvp e2e)
+      run: sudo apt-get update && sudo apt-get install -y iverilog
+
     - name: Run unit tests
       run: npm run test:unit
+
+    - name: Run lockstep e2e (real vvp)
+      run: node --test test/lockstep.vvp.integration.test.mjs
 
     - name: Build Library
       run: npm run build:lib
