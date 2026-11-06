@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 /*
- * nikaVSimulator design tokens.
+ * fpgasim design tokens.
  * Each token under @theme becomes a Tailwind utility, e.g.
  *   --color-panel   -> bg-panel / border-panel / text-panel
  *   --color-edge    -> border-edge

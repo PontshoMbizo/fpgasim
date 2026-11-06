@@ -1,4 +1,4 @@
-# Self-host bundle for nikaVSimulator.
+# Self-host bundle for fpgasim.
 #
 # Prereq (run once on the host): build the hardened sim image so the app can spawn it
 #   podman build -t nika-sim -f Dockerfile.sim sim/

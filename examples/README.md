@@ -1,4 +1,4 @@
-# nikaVSimulator — Example Problems
+# fpgasim — Example Problems
 
 Self-contained worked problems for the FPGA/Verilog simulator. Each folder has a
 `PROBLEM.md` (statement + how to run), a `starter.v` skeleton, a reference `solution.v`,

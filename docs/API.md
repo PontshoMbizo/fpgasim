@@ -1,11 +1,11 @@
 # NikaVSimulator API Documentation
 
-`nikaVSimulator` is designed to be a plug-and-play, framework-agnostic simulation engine and UI library. The core components and hooks have been exported so that they can be seamlessly embedded into other applications, such as Scope.io.
+`fpgasim` is designed to be a plug-and-play, framework-agnostic simulation engine and UI library. The core components and hooks have been exported so that they can be seamlessly embedded into other applications, such as Scope.io.
 
 ## Installation / Usage
-To use `nikaVSimulator` as a local dependency in another project:
+To use `fpgasim` as a local dependency in another project:
 ```bash
-npm install /path/to/nikaVSimulator
+npm install /path/to/fpgasim
 ```
 
 ## Exports Overview

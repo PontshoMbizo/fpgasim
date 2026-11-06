@@ -1,6 +1,6 @@
 # Simulation Backend
 
-How nikaVSimulator turns Verilog in the editor into real waveforms and live board
+How fpgasim turns Verilog in the editor into real waveforms and live board
 pins, and how it does so safely with untrusted code from anyone on the internet.
 
 ## Architecture

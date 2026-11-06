@@ -1,6 +1,6 @@
 # Tang Nano 9K Board Emulation
 
-nikaVSimulator can emulate the **Sipeed Tang Nano 9K** (Gowin GW1NR-9) so you write
+fpgasim can emulate the **Sipeed Tang Nano 9K** (Gowin GW1NR-9) so you write
 Verilog exactly as you would for the real chip — a top module plus authentic Gowin
 constraint files — and the simulator wires your design to the board's real pins and
 peripherals, validates the constraints, runs it, and shows the result on the board view,

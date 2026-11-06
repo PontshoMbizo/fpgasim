@@ -1,6 +1,6 @@
 # FPGA Problem — Button-Debounced Up/Down Counter
 
-**Simulator:** `/tools/fpga` (nikaVSimulator · Tang Nano 9K)
+**Simulator:** `/tools/fpga` (fpgasim · Tang Nano 9K)
 **Difficulty:** Easy–Medium · **Topics:** Sequential logic, metastability, debounce
 **Source theme:** GPIO debouncing + up/down counting (classic digital-design interview)
 
