@@ -24,10 +24,6 @@ export function validateStimulusShape(s) {
   const errors = [];
   if (!s || typeof s !== 'object') return ['Stimulus must be an object.'];
   if (typeof s.id !== 'string' || !s.id) errors.push('Stimulus missing `id`.');
-  // The id is interpolated into generated Verilog identifiers (stim_<id>_net etc.), so
-  // it must be identifier-safe. UI-generated ids ("stim_<base36>") always pass; this
-  // guards direct API callers from producing uncompilable or misleading harness text.
-  else if (!/^[A-Za-z_]\w*$/.test(s.id)) errors.push(`Stimulus id "${s.id}" must be a valid identifier ([A-Za-z_]\\w*).`);
   if (typeof s.target !== 'string' || !s.target) errors.push('Stimulus missing `target`.');
   if (!WIRE_KINDS.includes(s.kind)) {
     errors.push(`Stimulus "${s.id || '?'}" has unknown kind "${s.kind}".`);
@@ -63,12 +59,7 @@ export function validateStimulusShape(s) {
 // and no two blocks targeting the same port. Returns an array of
 // { severity: 'error', message, port? } diagnostics, matching the shape
 // src/lib/constraintCheck.js already produces.
-//
-// When `components` (external chip descriptors) are provided, targets of the form
-// "<compId>.<pinName>" are validated against chip input pins — mirroring exactly what
-// generateStimulusDrivers accepts (src/lib/testbench.js), so nothing passes validation
-// only to be silently skipped at codegen time (or vice versa).
-export function validateStimuli(stimuli, ports = [], components = []) {
+export function validateStimuli(stimuli, ports = []) {
   const diagnostics = [];
   if (!Array.isArray(stimuli)) {
     return [{ severity: 'error', message: '`stimuli` must be an array.' }];
@@ -78,12 +69,6 @@ export function validateStimuli(stimuli, ports = [], components = []) {
   }
 
   const portsByName = new Map(ports.map((p) => [p.name, p]));
-  // compId → Map<pinName, {dir,width}> for "<compId>.<pinName>" targets.
-  const compPinMap = new Map();
-  for (const c of components || []) {
-    if (!c || typeof c.id !== 'string') continue;
-    compPinMap.set(c.id, new Map((c.pins || []).map((p) => [p.name, p])));
-  }
   const claimed = new Set();
   let totalSamples = 0;
 
@@ -92,33 +77,15 @@ export function validateStimuli(stimuli, ports = [], components = []) {
     for (const message of shapeErrors) diagnostics.push({ severity: 'error', message, port: s?.target });
     if (shapeErrors.length) continue;
 
-    if (s.target.includes('.')) {
-      // Chip-pin target — same acceptance rules as generateStimulusDrivers.
-      const [compId, pinName] = s.target.split('.');
-      const compPins = compPinMap.get(compId);
-      const pin = compPins?.get(pinName);
-      if (!compPins) {
-        diagnostics.push({ severity: 'error', message: `Stimulus target "${s.target}" references unknown component "${compId}".`, port: s.target });
-      } else if (!pin) {
-        diagnostics.push({ severity: 'error', message: `Stimulus target "${s.target}" references unknown pin "${pinName}" on "${compId}".`, port: s.target });
-      } else if (pin.dir !== 'input') {
-        diagnostics.push({ severity: 'error', message: `Stimulus target "${s.target}" is not an input pin.`, port: s.target });
-      } else if (claimed.has(s.target)) {
-        diagnostics.push({ severity: 'error', message: `Multiple stimulus blocks target "${s.target}".`, port: s.target });
-      } else {
-        claimed.add(s.target);
-      }
+    const port = portsByName.get(s.target);
+    if (!port) {
+      diagnostics.push({ severity: 'error', message: `Stimulus target "${s.target}" is not a port on the design.`, port: s.target });
+    } else if (port.dir !== 'input') {
+      diagnostics.push({ severity: 'error', message: `Stimulus target "${s.target}" is not an input port.`, port: s.target });
+    } else if (claimed.has(s.target)) {
+      diagnostics.push({ severity: 'error', message: `Multiple stimulus blocks target "${s.target}".`, port: s.target });
     } else {
-      const port = portsByName.get(s.target);
-      if (!port) {
-        diagnostics.push({ severity: 'error', message: `Stimulus target "${s.target}" is not a port on the design.`, port: s.target });
-      } else if (port.dir !== 'input') {
-        diagnostics.push({ severity: 'error', message: `Stimulus target "${s.target}" is not an input port.`, port: s.target });
-      } else if (claimed.has(s.target)) {
-        diagnostics.push({ severity: 'error', message: `Multiple stimulus blocks target "${s.target}".`, port: s.target });
-      } else {
-        claimed.add(s.target);
-      }
+      claimed.add(s.target);
     }
 
     if (s.kind === 'samples') totalSamples += s.samples.values.length;

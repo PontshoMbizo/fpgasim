@@ -1,13 +1,7 @@
 import React from 'react';
 import { COLORS, STATE_COLORS } from '../../lib/theme';
 
-/**
- * Optional wiring-mode props (set by HardwareViewer when ExternalChipLayer is in
- * wiring mode):
- *   isWiringTarget       — bool; when true, pin acts as a wire endpoint
- *   onWiringTargetClick  — () => void; commit the in-progress wire to this pin
- */
-export default function PinOverlay({ pin, state, pinFunction, isHovered, isHighlighted, onHover, onLeave, canAddStimulus, onAddStimulus, isWiringTarget, onWiringTargetClick }) {
+export default function PinOverlay({ pin, state, pinFunction, isHovered, isHighlighted, onHover, onLeave, canAddStimulus, onAddStimulus }) {
   // Driven pins are colored by their simulated state; undriven pins are neutral.
   const stateColor = state ? STATE_COLORS[state] : null;
   const fill = isHovered ? COLORS.info : stateColor || COLORS.textSecondary;
@@ -17,21 +11,9 @@ export default function PinOverlay({ pin, state, pinFunction, isHovered, isHighl
   const isActive = pinFunction?.activeLow ? state === 'LOW' : state === 'HIGH';
 
   return (
-    <g
-      onMouseEnter={onHover}
-      onMouseLeave={onLeave}
-      onClick={isWiringTarget && onWiringTargetClick ? (e) => { e.stopPropagation(); onWiringTargetClick(); } : undefined}
-      className={isWiringTarget ? "cursor-crosshair" : "cursor-pointer"}
-    >
+    <g onMouseEnter={onHover} onMouseLeave={onLeave} className="cursor-pointer">
       {/* enlarged transparent hit target */}
       <circle cx={pin.x} cy={pin.y} r={18} fill="transparent" />
-
-      {/* Wiring-mode target ring — shown on all board pins when wiring is active */}
-      {isWiringTarget && (
-        <circle cx={pin.x} cy={pin.y} r={9} fill={COLORS.info} opacity="0.2">
-          <animate attributeName="r" values="7;9;7" dur="1s" repeatCount="indefinite" />
-        </circle>
-      )}
 
       {/* net highlight ring */}
       {isHighlighted && (

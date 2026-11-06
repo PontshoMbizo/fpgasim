@@ -1,14 +1,10 @@
 "use client";
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import Editor from '@monaco-editor/react';
-import { X, Plus, Trash2, Pause, Play, Upload } from 'lucide-react';
+import { X, Plus, Trash2, Pause, Play } from 'lucide-react';
 import { STIMULUS_PRESETS, STIMULUS_PRESETS_BY_ID, defaultParamsFor } from '../../lib/stimulusPresets';
 import { FUNCTION_GENERATORS, functionToSamples } from '../../lib/stimulusSampling';
 import { validateStimulusShape } from '../../lib/stimulusSchema';
-import { parseStimulusWaveformJson } from '../../lib/snapshot';
-import { useSim } from '../../lib/simState';
-
-const MAX_IMPORT_BYTES = 2 * 1024 * 1024; // 2 MB cap for file read
 
 const KIND_LABEL = { preset: 'Preset', samples: 'Samples', function: 'Function', verilog: 'Verilog' };
 
@@ -51,68 +47,9 @@ function NumberField({ label, value, onChange, min, max }) {
 }
 
 // Editable draft form for one stimulus block — shared by both "add new" and "edit".
-function StimulusForm({ draft, setDraft, ports, components, onSave, onCancel }) {
-  const [importError, setImportError] = useState(null);
-  const importInputRef = useRef(null);
-
+function StimulusForm({ draft, setDraft, ports, onSave, onCancel }) {
   const inputPorts = useMemo(() => ports.filter((p) => p.dir === 'input'), [ports]);
   const preset = STIMULUS_PRESETS_BY_ID[draft.preset?.id];
-
-  // Chip input pin options: { value: "c1.A", label: "nand2 (c1) — A" }
-  const chipPinOptions = useMemo(() => {
-    if (!Array.isArray(components)) return [];
-    const opts = [];
-    for (const comp of components) {
-      for (const pin of (comp.pins || [])) {
-        if (pin.dir === 'input') {
-          opts.push({
-            value: `${comp.id}.${pin.name}`,
-            label: `${comp.name} — ${pin.name}${pin.width > 1 ? `[${pin.width - 1}:0]` : ''}`,
-          });
-        }
-      }
-    }
-    return opts;
-  }, [components]);
-
-  const handleImportJson = (e) => {
-    const file = e.target.files?.[0];
-    // Reset so the same file can be re-selected after an error fix.
-    if (importInputRef.current) importInputRef.current.value = '';
-    if (!file) return;
-    if (file.size > MAX_IMPORT_BYTES) {
-      setImportError(`File too large (${(file.size / 1024).toFixed(0)} KB). Maximum is 2 MB.`);
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const text = ev.target.result;
-      const result = parseStimulusWaveformJson(text);
-      if (!result.ok) {
-        setImportError(result.errors?.join(' ') || 'Import failed.');
-        return;
-      }
-      setImportError(null);
-      setDraft((d) => ({
-        ...d,
-        kind: 'samples',
-        samples: {
-          ...d.samples,
-          values: result.values,
-          stepNs: result.stepNs != null ? result.stepNs : (d.samples?.stepNs ?? 100),
-        },
-        // Only overwrite target if file specifies one and it matches a known port
-        target: result.target && (
-          ports.some((p) => p.name === result.target) ||
-          chipPinOptions.some((o) => o.value === result.target)
-        ) ? result.target : d.target,
-      }));
-    };
-    reader.onerror = () => {
-      setImportError('Could not read file.');
-    };
-    reader.readAsText(file);
-  };
 
   const setParam = (bucket, key, value) => {
     setDraft((d) => ({ ...d, [bucket]: { ...d[bucket], params: { ...d[bucket]?.params, [key]: value } } }));
@@ -136,20 +73,9 @@ function StimulusForm({ draft, setDraft, ports, components, onSave, onCancel }) 
             className={`bg-base border rounded px-2 py-1 text-[12px] text-text-primary outline-none ${draft.target ? 'border-edge' : 'border-danger'}`}
           >
             <option value="" disabled>Select a port…</option>
-            {inputPorts.length > 0 && (
-              <optgroup label="Design ports">
-                {inputPorts.map((p) => (
-                  <option key={p.name} value={p.name}>{p.name}{p.range ? ` ${p.range}` : ''}</option>
-                ))}
-              </optgroup>
-            )}
-            {chipPinOptions.length > 0 && (
-              <optgroup label="Chip input pins">
-                {chipPinOptions.map((o) => (
-                  <option key={o.value} value={o.value}>{o.label}</option>
-                ))}
-              </optgroup>
-            )}
+            {inputPorts.map((p) => (
+              <option key={p.name} value={p.name}>{p.name}{p.range ? ` ${p.range}` : ''}</option>
+            ))}
           </select>
         </label>
         <label className="flex-1 flex flex-col gap-1 text-[11px] text-text-muted">
@@ -218,26 +144,6 @@ function StimulusForm({ draft, setDraft, ports, components, onSave, onCancel }) 
               className="bg-base border border-edge rounded px-2 py-1 text-[12px] text-text-primary outline-none font-mono"
             />
           </label>
-          {/* Import JSON waveform */}
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => importInputRef.current?.click()}
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded border border-edge text-[12px] text-text-secondary hover:bg-hover"
-              title="Import a .json waveform file (nikav-stimulus or bare array)"
-            >
-              <Upload size={12} />
-              Import JSON
-            </button>
-            {importError && <span className="text-[11px] text-danger">{importError}</span>}
-            <input
-              ref={importInputRef}
-              type="file"
-              accept=".json,application/json"
-              className="hidden"
-              onChange={handleImportJson}
-            />
-          </div>
         </>
       )}
 
@@ -310,7 +216,6 @@ function StimulusForm({ draft, setDraft, ports, components, onSave, onCancel }) 
 // The stimulus block manager: a list of existing blocks + an "add" flow, rendered as a
 // side panel over the hardware view. Only mounted when advanced mode is on.
 export default function StimulusConfigPanel({ stimuli, setStimuli, ports, onClose, initialTarget, onConsumeInitialTarget, initialEditId, onConsumeInitialEditId }) {
-  const { components } = useSim();
   const [error, setError] = useState(null);
   const [draft, setDraft] = useState(null);
   const editingId = draft?.id ?? null;
@@ -395,7 +300,7 @@ export default function StimulusConfigPanel({ stimuli, setStimuli, ports, onClos
 
         {stimuli.map((s) => (
           editingId === s.id && draft ? (
-            <StimulusForm key={s.id} draft={draft} setDraft={setDraft} ports={ports} components={components} onSave={save} onCancel={cancelEdit} />
+            <StimulusForm key={s.id} draft={draft} setDraft={setDraft} ports={ports} onSave={save} onCancel={cancelEdit} />
           ) : (
             <div key={s.id} className="flex items-center gap-2 px-2 py-1.5 rounded border border-edge bg-elevated text-[12px]">
               <button onClick={() => toggleEnabled(s.id)} className="text-text-muted hover:text-text-primary" title={s.enabled === false ? 'Enable' : 'Disable'}>
@@ -411,7 +316,7 @@ export default function StimulusConfigPanel({ stimuli, setStimuli, ports, onClos
         ))}
 
         {editingId && draft && !stimuli.some((s) => s.id === editingId) && (
-          <StimulusForm draft={draft} setDraft={setDraft} ports={ports} components={components} onSave={save} onCancel={cancelEdit} />
+          <StimulusForm draft={draft} setDraft={setDraft} ports={ports} onSave={save} onCancel={cancelEdit} />
         )}
       </div>
 

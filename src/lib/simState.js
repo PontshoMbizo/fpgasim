@@ -3,39 +3,6 @@ import React, { createContext, useContext, useMemo, useState } from "react";
 import PINS from "../data/pins.json";
 import { toModel } from "./vcd";
 
-// ---- External component/wire helpers ----------------------------------------
-
-/**
- * Remove wires that reference a component or pin that no longer exists.
- * Called whenever `components` changes so the wires array stays consistent.
- *
- * @param {object[]} wires       Current wire array.
- * @param {object[]} components  Current component array.
- * @returns {object[]}  Filtered wire array (may be the same reference if no
- *                      wires were dropped).
- */
-export function pruneWires(wires, components) {
-  const compPins = new Map();
-  for (const c of components) {
-    const pinNames = new Set((c.pins || []).map((p) => p.name));
-    compPins.set(c.id, pinNames);
-  }
-
-  const pruned = wires.filter((w) => {
-    for (const ep of [w.a, w.b]) {
-      if (ep && ep.comp != null) {
-        const pins = compPins.get(ep.comp);
-        if (!pins) return false;          // component removed
-        if (!pins.has(ep.pin)) return false; // pin removed (e.g. after re-parse)
-      }
-    }
-    return true;
-  });
-
-  // Return same reference when nothing was pruned (avoids spurious re-renders)
-  return pruned.length === wires.length ? wires : pruned;
-}
-
 // Single source of truth for the simulation, shared by the Hardware and Waveforms
 // tabs. Signals live in a canonical model produced by the VCD parser; clicking
 // "Run" replaces it via setModel(). The UI reads `signals`/`pinStates` the same way
@@ -141,35 +108,6 @@ export function SimProvider({ children, board }) {
   // populate a "target port" picker without needing the raw Verilog source itself.
   const [designPorts, setDesignPorts] = useState([]);
 
-  // External custom chip components ({id,name,x,y,pins,verilog,testbench}[]) and
-  // their wires ({id,a,b}[]). Advanced-mode only.  Whenever components change, any
-  // wires that reference removed components or pins are automatically dropped so the
-  // data invariant "no dangling wire endpoints" is always upheld.
-  const [components, setComponentsRaw] = useState([]);
-  const [wires, setWiresRaw] = useState([]);
-
-  const setComponents = (next) => {
-    // Resolve the next state first (handle functional updater pattern).
-    // We must read the *current* components via the functional form of setComponentsRaw
-    // so that rapid calls compose correctly without stale closure values.
-    setComponentsRaw((prevComponents) => {
-      const nextComponents = typeof next === "function" ? next(prevComponents) : next;
-      // Schedule wire pruning in the same React batch.
-      setWiresRaw((prevWires) => pruneWires(prevWires, nextComponents));
-      return nextComponents;
-    });
-  };
-
-  // Always use functional form of setWiresRaw so the closure doesn't capture a
-  // stale `wires` value — this makes setWires itself a stable (non-dep) reference.
-  const setWires = (next) => {
-    if (typeof next === "function") {
-      setWiresRaw(next);
-    } else {
-      setWiresRaw(() => next);
-    }
-  };
-
   // Accepts a raw VCD string, a full model, or a bare signals array. Returns the
   // parsed model so callers can read e.g. signal count immediately.
   const setModel = (input) => {
@@ -200,13 +138,9 @@ export function SimProvider({ children, board }) {
       stimuli,
       setStimuli,
       designPorts,
-      setDesignPorts,
-      components,
-      setComponents,
-      wires,
-      setWires,
+      setDesignPorts
     }),
-    [model, timeCursor, pinStates, board, diagnostics, peripheralOutputs, advanced, stimuli, designPorts, components, wires]
+    [model, timeCursor, pinStates, board, diagnostics, peripheralOutputs, advanced, stimuli, designPorts]
   );
   return <SimContext.Provider value={value}>{children}</SimContext.Provider>;
 }
