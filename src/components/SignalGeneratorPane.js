@@ -58,7 +58,7 @@ export default function SignalGeneratorPane() {
       elements.push(
         <g key={i}>
           <polygon points={`${startX},9 ${startX + 3},3 ${endX - 3},3 ${endX},9 ${endX - 3},15 ${startX + 3},15`} fill="none" stroke={c} strokeWidth="1.2" />
-          <text x={startX + 6} y={12.5} fill={c} fontSize="10" fontFamily="monospace">{unknown ? 'XX' : v}</text>
+          <text x={startX + 6} y={12.5} fill={c} fontSize="10" fontFamily="var(--font-mono), monospace">{unknown ? 'XX' : v}</text>
         </g>
       );
     }
@@ -75,10 +75,10 @@ export default function SignalGeneratorPane() {
     <div className="absolute inset-0 flex bg-panel text-text-secondary overflow-hidden font-sans">
 
       {/* Left Pane: Signal List */}
-      <div className="w-[280px] h-full flex flex-col border-r border-edge bg-panel shadow-sm z-10 shrink-0">
+      <div className="w-[220px] h-full flex flex-col border-r border-edge bg-elevated z-10 shrink-0">
 
         {/* Header */}
-        <div className="h-6 border-b border-edge bg-elevated flex items-center px-1 text-[11px] font-sans text-text-muted">
+        <div className="h-6 border-b border-edge bg-elevated flex items-center px-2 text-[11px] font-sans text-text-muted">
           <div className="w-8">Dir</div>
           <div className="w-10">Type</div>
           <div className="flex-1">Signals</div>
@@ -87,11 +87,11 @@ export default function SignalGeneratorPane() {
         {/* List */}
         <div className="flex-1 overflow-y-auto custom-scrollbar">
           {signals.map((sig) => (
-            <div key={sig.id} className="flex items-center px-1 text-[12px] h-[18px] hover:bg-hover cursor-pointer">
+            <div key={sig.id} className="flex items-center px-2 text-[11px] h-[18px] hover:bg-accent-bg cursor-pointer">
               <div className="w-8 text-text-muted font-mono text-[10px]">{sig.dir}</div>
               <div className="w-10 text-text-muted font-mono text-[10px]">{sig.type}</div>
               <div className="flex-1 font-mono flex">
-                <span className="text-text-secondary" title={sig.path || sig.name}>{sig.name}</span>
+                <span className="text-text-primary" title={sig.path || sig.name}>{sig.name}</span>
               </div>
             </div>
           ))}
@@ -108,8 +108,8 @@ export default function SignalGeneratorPane() {
           /* Empty state — no simulation has run yet. */
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <div className="text-center text-text-muted text-[13px] font-sans">
-              <div className="font-mono text-[12px] opacity-70">No waveforms yet</div>
-              <div className="mt-1">Press <span className="text-accent font-medium">Run</span> to simulate your design.</div>
+              <div className="text-text-primary">No waveforms yet</div>
+              <div className="mt-1 text-[12px]">Press <span className="text-run font-medium">Run</span> to simulate your design.</div>
             </div>
           </div>
         ) : (
@@ -121,7 +121,7 @@ export default function SignalGeneratorPane() {
                 {[...Array(tickCount)].map((_, i) => (
                   <g key={i}>
                     <line x1={px(i * TICK_NS)} y1="18" x2={px(i * TICK_NS)} y2="24" stroke={COLORS.textMuted} strokeWidth="1" />
-                    <text x={px(i * TICK_NS) + 5} y="15" fill={COLORS.textMuted} fontSize="10" fontFamily="monospace">{i * TICK_NS} ns</text>
+                    <text x={px(i * TICK_NS) + 5} y="15" fill={COLORS.textMuted} fontSize="10" fontFamily="var(--font-mono), monospace">{i * TICK_NS} ns</text>
                   </g>
                 ))}
                 {/* Header Cursor Segment */}
@@ -133,7 +133,7 @@ export default function SignalGeneratorPane() {
             <div className="flex-1 relative" style={{ height: Math.max(0, signals.length * 18 + 16) }}>
               <svg width="100%" height="100%" className="absolute inset-0 pointer-events-none z-10">
                 {[...Array(gridCount)].map((_, i) => (
-                  <line key={i} x1={px(i * GRID_NS)} y1="0" x2={px(i * GRID_NS)} y2="100%" stroke={COLORS.edge} strokeWidth="1" strokeDasharray="2,2" opacity="0.5" />
+                  <line key={i} x1={px(i * GRID_NS)} y1="0" x2={px(i * GRID_NS)} y2="100%" stroke={COLORS.rule} strokeWidth="1" strokeDasharray="2,2" />
                 ))}
                 {/* Body Cursor Segment */}
                 <line x1={px(timeCursor)} y1="0" x2={px(timeCursor)} y2="100%" stroke={COLORS.danger} strokeWidth="1.2" />
@@ -143,7 +143,7 @@ export default function SignalGeneratorPane() {
                 {signals.map((sig) => (
                   <div key={sig.id} className="h-[18px] relative flex items-center">
                     <svg width="100%" height="18" className="absolute top-0 left-0">
-                      <line x1="0" y1="18" x2="100%" y2="18" stroke={COLORS.hover} strokeWidth="1" />
+                      <line x1="0" y1="18" x2="100%" y2="18" stroke={COLORS.rule} strokeWidth="1" />
                       {renderWaveform(sig)}
                     </svg>
                   </div>

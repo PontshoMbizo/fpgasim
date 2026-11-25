@@ -78,12 +78,12 @@ export default function HardwareViewer({ board }) {
   const highlightedNet = hoveredPin ? hoveredPin.special : [];
 
   return (
-    <div className="w-full h-full bg-panel flex flex-col font-sans relative">
+    <div className="w-full h-full bg-elevated flex flex-col font-sans relative">
 
       {/* Background Grid Pattern */}
       <div
-        className="absolute inset-0 opacity-[0.03] pointer-events-none z-0"
-        style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, white 1px, transparent 0)', backgroundSize: '24px 24px' }}
+        className="absolute inset-0 pointer-events-none z-0"
+        style={{ backgroundImage: 'radial-gradient(var(--color-rule) 0.8px, transparent 0.8px)', backgroundSize: '18px 18px' }}
       />
 
       <div
@@ -107,7 +107,7 @@ export default function HardwareViewer({ board }) {
               viewBox={`0 0 ${BOARD_WIDTH} ${BOARD_HEIGHT}`}
               width={BOARD_WIDTH}
               height={BOARD_HEIGHT}
-              className="drop-shadow-[0_28px_60px_rgba(0,0,0,0.65)]"
+              className="drop-shadow-[0_14px_30px_rgba(0,0,0,0.28)]"
             >
               <BoardImage width={BOARD_WIDTH} height={BOARD_HEIGHT} />
 
@@ -175,8 +175,9 @@ export default function HardwareViewer({ board }) {
         {advanced && (
           <button
             onClick={() => setStimulusPanelOpen((v) => !v)}
-            className={`absolute top-2 right-2 z-20 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[12px] font-medium border transition-colors ${
-              stimulusPanelOpen ? 'bg-accent text-white border-accent' : 'bg-panel text-text-secondary border-edge hover:bg-hover'
+            aria-pressed={stimulusPanelOpen}
+            className={`absolute top-2.5 right-2.5 z-20 flex items-center gap-1.5 min-h-[28px] px-2.5 rounded-suite text-[13px] border transition-colors ${
+              stimulusPanelOpen ? 'bg-accent-bg text-accent border-accent' : 'bg-panel text-text-primary border-edge hover:bg-accent-bg'
             }`}
             title="Signal Sources — visual stimulus blocks"
           >

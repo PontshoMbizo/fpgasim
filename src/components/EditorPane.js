@@ -1,8 +1,8 @@
 "use client";
 import React, { useState, useEffect, useRef } from 'react';
 import Editor from '@monaco-editor/react';
-import { Code2, Maximize2, List, SlidersHorizontal, Play, Loader, Send } from 'lucide-react';
-import PaneHeader from './ui/PaneHeader';
+import { Code2, Maximize2, Minimize2, ChevronUp, ChevronDown, SlidersHorizontal, Play, Loader, Send, CircleCheck, CircleAlert } from 'lucide-react';
+import { defineSuiteThemes, monoFontFamily, useSuiteMonacoTheme } from '../lib/monacoTheme';
 import { useSim } from '../lib/simState';
 import { DEFAULT_DESIGN, DEFAULT_TESTBENCH } from '../lib/templateDefaults';
 import { sendResult, extractChanges } from '../lib/scopeioBridge';
@@ -14,6 +14,8 @@ const BASIC_TABS = ['design'];
 const ADVANCED_TABS = ['design', 'testbench', 'cst', 'sdc'];
 
 const EMBED_ACTION_LABEL = { export: 'Save starter', capture: 'Capture golden', solve: 'Submit' };
+const TAB_LABEL = { design: 'Design', testbench: 'Testbench', cst: 'Cst', sdc: 'Sdc' };
+const TAB_FILE = { design: 'design.v', testbench: 'testbench.v', cst: 'pins.cst', sdc: 'timing.sdc' };
 
 // `templates` (optional) seeds the editors — supplied by the server from the
 // disk-backed registry (src/lib/templates.js). Falls back to the built-in defaults so
@@ -37,6 +39,7 @@ export default function EditorPane({ templates, embedMode, isFullscreen, onFulls
   const { setModel, setDiagnostics, setPeripheralOutputs, advanced, setAdvanced, stimuli, setDesignPorts } = useSim();
   const [running, setRunning] = useState(false);
   const [status, setStatus] = useState(null); // { ok, text }
+  const monacoTheme = useSuiteMonacoTheme();
 
   const tabs = advanced ? ADVANCED_TABS : BASIC_TABS;
   // Effective tab: if Advanced is off, hidden tabs fall back to Design (derived, so no
@@ -178,89 +181,95 @@ export default function EditorPane({ templates, embedMode, isFullscreen, onFulls
   };
 
   return (
-    <div className="w-full h-full flex flex-col bg-panel rounded-lg border border-edge overflow-hidden font-sans shadow-xl">
+    <div className="w-full h-full flex flex-col bg-panel overflow-hidden font-sans">
 
-      <PaneHeader
-        isFullscreen={isFullscreen}
-        onFullscreen={onFullscreen}
-        isCollapsed={isCollapsed}
-        onCollapse={onCollapse}
-      >
-        <div className="flex items-center gap-2 text-text-secondary font-semibold text-[13px]">
-          <Code2 size={16} className="text-accent" />
-          Code
-        </div>
-      </PaneHeader>
-
-      {/* Sub Toolbar */}
-      <div className="h-10 bg-panel flex items-center justify-between px-3 shrink-0">
-        <div className="flex items-center gap-1 text-[13px]">
-          {tabs.map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`px-2.5 py-1 rounded transition-colors capitalize ${currentTab === tab ? 'bg-edge text-text-primary' : 'text-text-secondary hover:bg-edge/60'}`}
-            >
-              {tab}
-            </button>
-          ))}
-        </div>
-        <div className="flex items-center gap-3 text-text-muted">
-          {advanced && (
-            <select
-              value={durationNs}
-              onChange={e => setDurationNs(Number(e.target.value))}
-              className="bg-edge/50 border border-edge text-text-primary text-[12px] rounded px-1.5 py-1 outline-none"
-              title="Simulation duration"
-            >
-              <option value={100000}>100 µs</option>
-              <option value={500000}>500 µs</option>
-              <option value={2000000}>2 ms</option>
-              <option value={10000000}>10 ms</option>
-              <option value={33333333}>33 ms (1 frame)</option>
-            </select>
-          )}
+      {/* Toolbar: Run first, as across the suite; run settings on the right */}
+      <div role="toolbar" aria-label="Code toolbar" className="min-h-[41px] bg-base border-b border-edge flex items-center flex-wrap gap-[5px] px-[9px] py-[6px] shrink-0">
+        <button
+          type="button"
+          onClick={handleRun}
+          disabled={running}
+          className="inline-flex items-center gap-1.5 min-h-[28px] px-[11px] rounded-suite border border-run bg-run text-white text-[13px] font-medium hover:brightness-110 disabled:opacity-60 transition"
+          title="Run simulation"
+        >
+          {running ? <Loader size={13} className="animate-spin" /> : <Play size={13} fill="currentColor" />}
+          {running ? 'Running' : 'Run'}
+        </button>
+        {embedMode && (
           <button
-            onClick={() => setAdvanced(!advanced)}
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-[12px] font-medium transition-colors ${advanced ? 'bg-edge text-text-primary' : 'text-text-secondary hover:bg-edge/60'}`}
-            title="Advanced options — testbench, constraints (.cst/.sdc), simulation duration and the UART/HDMI views"
-            aria-pressed={advanced}
-          >
-            <SlidersHorizontal size={13} />
-            Advanced
-          </button>
-          <button
-            onClick={handleRun}
+            type="button"
+            onClick={handleEmbedAction}
             disabled={running}
-            className="flex items-center gap-1.5 bg-accent/90 hover:bg-accent text-white px-2.5 py-1 rounded text-[12px] font-medium transition-colors disabled:opacity-60"
-            title="Run simulation"
+            className="inline-flex items-center gap-1.5 min-h-[28px] px-2.5 rounded-suite border border-accent bg-accent text-on-accent text-[13px] font-medium hover:brightness-110 disabled:opacity-60 transition"
+            title={`Send to scope.io (${embedMode.mode})`}
           >
-            {running ? <Loader size={13} className="animate-spin" /> : <Play size={13} />}
-            {running ? 'Running' : 'Run'}
+            <Send size={13} />
+            {EMBED_ACTION_LABEL[embedMode.mode] || 'Send'}
           </button>
-          {embedMode && (
-            <button
-              onClick={handleEmbedAction}
-              disabled={running}
-              className="flex items-center gap-1.5 bg-emerald-600/90 hover:bg-emerald-600 text-white px-2.5 py-1 rounded text-[12px] font-medium transition-colors disabled:opacity-60"
-              title={`Send to scope.io (${embedMode.mode})`}
-            >
-              <Send size={13} />
-              {EMBED_ACTION_LABEL[embedMode.mode] || 'Send'}
+        )}
+        <span className="w-px h-[18px] bg-edge mx-1" aria-hidden />
+        <button
+          type="button"
+          onClick={() => setAdvanced(!advanced)}
+          className={`inline-flex items-center gap-1.5 min-h-[28px] px-2 rounded-suite text-[13px] transition-colors ${advanced ? 'bg-accent-bg text-accent' : 'text-text-primary hover:bg-accent-bg'}`}
+          title="Advanced options — testbench, constraints (.cst/.sdc), simulation duration and the UART/HDMI views"
+          aria-pressed={advanced}
+        >
+          <SlidersHorizontal size={14} />
+          Advanced
+        </button>
+        <div className="ml-auto flex items-center gap-[7px] text-text-muted text-[13px]">
+          {advanced && (
+            <label className="flex items-center gap-[5px]">
+              Stop
+              <select
+                value={durationNs}
+                onChange={e => setDurationNs(Number(e.target.value))}
+                className="min-h-[28px] bg-panel border border-edge text-text-primary font-mono text-[11px] rounded-suite px-1.5 outline-none focus:border-accent"
+                title="Simulation duration"
+              >
+                <option value={100000}>100 µs</option>
+                <option value={500000}>500 µs</option>
+                <option value={2000000}>2 ms</option>
+                <option value={10000000}>10 ms</option>
+                <option value={33333333}>33 ms (1 frame)</option>
+              </select>
+            </label>
+          )}
+          {onFullscreen && (
+            <button type="button" onClick={onFullscreen} className="inline-flex items-center justify-center min-w-[27px] min-h-[27px] rounded-suite text-text-muted hover:bg-accent-bg hover:text-text-primary transition-colors" title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'} aria-label={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}>
+              {isFullscreen ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
             </button>
           )}
-          <button className="hover:text-text-primary transition-colors" title="Format">
-            <List size={15} />
-          </button>
-          <button onClick={onFullscreen} className="hover:text-text-primary transition-colors" title="Fullscreen">
-            <Maximize2 size={15} />
-          </button>
+          {onCollapse && (
+            <button type="button" onClick={onCollapse} className="inline-flex items-center justify-center min-w-[27px] min-h-[27px] rounded-suite text-text-muted hover:bg-accent-bg hover:text-text-primary transition-colors" title={isCollapsed ? 'Expand' : 'Collapse'} aria-label={isCollapsed ? 'Expand' : 'Collapse'}>
+              {isCollapsed ? <ChevronDown size={15} /> : <ChevronUp size={15} />}
+            </button>
+          )}
         </div>
+      </div>
+
+      {/* File tabs */}
+      <div role="tablist" aria-label="Source files" className="flex items-center flex-wrap gap-0.5 px-[5px] py-1 bg-elevated border-b border-rule shrink-0">
+        <Code2 size={13} className="text-text-muted mx-1" aria-hidden />
+        {tabs.map((tab) => (
+          <button
+            key={tab}
+            type="button"
+            role="tab"
+            aria-selected={currentTab === tab}
+            onClick={() => setActiveTab(tab)}
+            title={TAB_FILE[tab]}
+            className={`min-h-[25px] px-2 rounded-suite border text-[12px] transition-colors ${currentTab === tab ? 'bg-panel border-edge text-text-primary font-medium' : 'border-transparent text-text-secondary hover:bg-accent-bg'}`}
+          >
+            {TAB_LABEL[tab]}
+          </button>
+        ))}
       </div>
 
       {/* Editor Error / Diagnostics Banner */}
       {status?.ok === false && (
-        <div className="bg-danger/10 text-danger border-y border-danger/20 p-2 text-xs font-mono max-h-32 overflow-auto whitespace-pre-wrap">
+        <div role="alert" className="m-2 mb-0 px-3 py-2 bg-danger-bg text-danger border-l-[3px] border-danger rounded-r-suite text-[11px] font-mono max-h-32 overflow-auto whitespace-pre-wrap">
           {status.text}
         </div>
       )}
@@ -271,7 +280,8 @@ export default function EditorPane({ templates, embedMode, isFullscreen, onFulls
           height="100%"
           path={currentTab + '.v'}
           defaultLanguage={currentTab === 'cst' || currentTab === 'sdc' ? 'tcl' : 'verilog'}
-          theme="vs-dark"
+          theme={monacoTheme}
+          beforeMount={defineSuiteThemes}
           value={currentTab === 'design' ? code : currentTab === 'testbench' ? testbench : currentTab === 'cst' ? cst : sdc}
           onChange={(val) => {
             if (currentTab === 'design') setCode(val ?? '');
@@ -281,10 +291,10 @@ export default function EditorPane({ templates, embedMode, isFullscreen, onFulls
           }}
           options={{
             minimap: { enabled: false },
-            fontSize: 14,
-            fontFamily: "'Menlo', 'Monaco', 'Courier New', monospace",
-            lineHeight: 24,
-            padding: { top: 16 },
+            fontSize: 13,
+            fontFamily: monoFontFamily(),
+            lineHeight: 22,
+            padding: { top: 10 },
             wordWrap: 'on',
             scrollBeyondLastLine: false,
             smoothScrolling: true,
@@ -296,12 +306,13 @@ export default function EditorPane({ templates, embedMode, isFullscreen, onFulls
         />
       </div>
 
-      {/* Footer */}
-      <div className="h-8 bg-panel border-t border-edge/50 flex items-center justify-between px-4 shrink-0 text-[12px] text-text-muted">
-        <div className={`truncate font-mono ${status ? (status.ok ? 'text-accent' : 'text-danger') : ''}`} title={status?.text || ''}>
+      {/* Status line */}
+      <div className="min-h-[26px] bg-base border-t border-edge flex items-center gap-1.5 px-2.5 shrink-0 text-[11px] text-text-muted">
+        {status && (status.ok ? <CircleCheck size={13} className="text-ok shrink-0" /> : <CircleAlert size={13} className="text-danger shrink-0" />)}
+        <div className={`truncate font-mono ${status ? (status.ok ? 'text-text-primary' : 'text-danger') : ''}`} title={status?.text || ''}>
           {status ? status.text : 'Saved'}
         </div>
-        <div className="shrink-0 pl-3">Ln 1, Col 1</div>
+        <div className="ml-auto shrink-0 pl-3 font-mono">{TAB_FILE[currentTab]}</div>
       </div>
 
     </div>

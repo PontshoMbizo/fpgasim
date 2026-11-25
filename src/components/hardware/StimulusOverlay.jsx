@@ -11,7 +11,7 @@ export default function StimulusOverlay({ stimulus, pin, isHovered, onHover, onL
   const y = pin.y - 26;
   const disabled = stimulus.enabled === false;
   const fill = disabled ? 'transparent' : (isHovered ? COLORS.accent : COLORS.elevated);
-  const glyphColor = disabled ? COLORS.textMuted : (isHovered ? COLORS.base : COLORS.accent);
+  const glyphColor = disabled ? COLORS.textMuted : (isHovered ? COLORS.onAccent : COLORS.accent);
 
   return (
     <g

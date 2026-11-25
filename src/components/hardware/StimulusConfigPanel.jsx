@@ -5,6 +5,8 @@ import { X, Plus, Trash2, Pause, Play } from 'lucide-react';
 import { STIMULUS_PRESETS, STIMULUS_PRESETS_BY_ID, defaultParamsFor } from '../../lib/stimulusPresets';
 import { FUNCTION_GENERATORS, functionToSamples } from '../../lib/stimulusSampling';
 import { validateStimulusShape } from '../../lib/stimulusSchema';
+import { COLORS } from '../../lib/theme';
+import { defineSuiteThemes, monoFontFamily, useSuiteMonacoTheme } from '../../lib/monacoTheme';
 
 const KIND_LABEL = { preset: 'Preset', samples: 'Samples', function: 'Function', verilog: 'Verilog' };
 
@@ -24,8 +26,8 @@ function SamplePreview({ values }) {
   const step = w / (values.length - 1 || 1);
   const points = values.map((v, i) => `${(i * step).toFixed(1)},${(h - ((v - min) / range) * h).toFixed(1)}`).join(' ');
   return (
-    <svg width={w} height={h} className="bg-panel border border-edge rounded">
-      <polyline points={points} fill="none" stroke="#22c55e" strokeWidth="1.5" />
+    <svg width={w} height={h} className="bg-panel border border-edge rounded-suite">
+      <polyline points={points} fill="none" stroke={COLORS.sigHigh} strokeWidth="1.5" />
     </svg>
   );
 }
@@ -40,7 +42,7 @@ function NumberField({ label, value, onChange, min, max }) {
         min={min}
         max={max}
         onChange={(e) => onChange(Number(e.target.value))}
-        className="bg-base border border-edge rounded px-2 py-1 text-[12px] text-text-primary outline-none focus:border-accent"
+        className="bg-panel border border-edge rounded-suite px-2 min-h-[28px] text-[12px] text-text-primary outline-none focus:border-accent"
       />
     </label>
   );
@@ -48,6 +50,7 @@ function NumberField({ label, value, onChange, min, max }) {
 
 // Editable draft form for one stimulus block — shared by both "add new" and "edit".
 function StimulusForm({ draft, setDraft, ports, onSave, onCancel }) {
+  const monacoTheme = useSuiteMonacoTheme();
   const inputPorts = useMemo(() => ports.filter((p) => p.dir === 'input'), [ports]);
   const preset = STIMULUS_PRESETS_BY_ID[draft.preset?.id];
 
@@ -60,17 +63,17 @@ function StimulusForm({ draft, setDraft, ports, onSave, onCancel }) {
     : null;
 
   return (
-    <div className="flex flex-col gap-3 p-3 bg-elevated border border-edge rounded-lg text-[12px]">
+    <div className="flex flex-col gap-3 p-3 bg-panel border border-edge rounded-suite text-[12px]">
       {/* Sticky so it stays visible while scrolling the rest of a tall form (e.g. the
           samples textarea or an embedded verilog editor) — the target is required and
           must not be scrollable-past-unnoticed. */}
-      <div className="flex gap-2 sticky -top-3 -mx-3 -mt-3 px-3 pt-3 pb-2 bg-elevated z-10 border-b border-edge">
+      <div className="flex gap-2 sticky -top-3 -mx-3 -mt-3 px-3 pt-3 pb-2 bg-panel z-10 border-b border-rule">
         <label className="flex-1 flex flex-col gap-1 text-[11px] text-text-muted">
           Target port {!draft.target && <span className="text-danger">*</span>}
           <select
             value={draft.target || ''}
             onChange={(e) => setDraft((d) => ({ ...d, target: e.target.value }))}
-            className={`bg-base border rounded px-2 py-1 text-[12px] text-text-primary outline-none ${draft.target ? 'border-edge' : 'border-danger'}`}
+            className={`bg-panel border rounded-suite px-2 min-h-[28px] text-[12px] text-text-primary outline-none focus:border-accent ${draft.target ? 'border-edge' : 'border-danger'}`}
           >
             <option value="" disabled>Select a port…</option>
             {inputPorts.map((p) => (
@@ -83,7 +86,7 @@ function StimulusForm({ draft, setDraft, ports, onSave, onCancel }) {
           <select
             value={draft.kind}
             onChange={(e) => setDraft((d) => ({ ...d, kind: e.target.value }))}
-            className="bg-base border border-edge rounded px-2 py-1 text-[12px] text-text-primary outline-none"
+            className="bg-panel border border-edge rounded-suite px-2 min-h-[28px] text-[12px] text-text-primary outline-none focus:border-accent"
           >
             {Object.entries(KIND_LABEL).map(([k, label]) => <option key={k} value={k}>{label}</option>)}
           </select>
@@ -101,7 +104,7 @@ function StimulusForm({ draft, setDraft, ports, onSave, onCancel }) {
             <select
               value={draft.preset?.id || ''}
               onChange={(e) => setDraft((d) => ({ ...d, preset: { id: e.target.value, params: defaultParamsFor(e.target.value) } }))}
-              className="bg-base border border-edge rounded px-2 py-1 text-[12px] text-text-primary outline-none"
+              className="bg-panel border border-edge rounded-suite px-2 min-h-[28px] text-[12px] text-text-primary outline-none focus:border-accent"
             >
               <option value="" disabled>Select a preset…</option>
               {STIMULUS_PRESETS.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
@@ -141,7 +144,7 @@ function StimulusForm({ draft, setDraft, ports, onSave, onCancel }) {
                 const values = e.target.value.split(/[\s,]+/).filter(Boolean).map(Number).filter((n) => !Number.isNaN(n));
                 setDraft((d) => ({ ...d, samples: { ...d.samples, values } }));
               }}
-              className="bg-base border border-edge rounded px-2 py-1 text-[12px] text-text-primary outline-none font-mono"
+              className="bg-panel border border-edge rounded-suite px-2 min-h-[28px] text-[12px] text-text-primary outline-none focus:border-accent font-mono"
             />
           </label>
         </>
@@ -154,7 +157,7 @@ function StimulusForm({ draft, setDraft, ports, onSave, onCancel }) {
             <select
               value={draft.function?.generator || 'sine'}
               onChange={(e) => setDraft((d) => ({ ...d, function: { ...d.function, generator: e.target.value } }))}
-              className="bg-base border border-edge rounded px-2 py-1 text-[12px] text-text-primary outline-none"
+              className="bg-panel border border-edge rounded-suite px-2 min-h-[28px] text-[12px] text-text-primary outline-none focus:border-accent"
             >
               {FUNCTION_GENERATORS.map((g) => <option key={g} value={g}>{g}</option>)}
             </select>
@@ -179,32 +182,33 @@ function StimulusForm({ draft, setDraft, ports, onSave, onCancel }) {
             <select
               value={draft.verilog?.mode || 'procedural'}
               onChange={(e) => setDraft((d) => ({ ...d, verilog: { ...d.verilog, mode: e.target.value } }))}
-              className="bg-base border border-edge rounded px-2 py-1 text-[12px] text-text-primary outline-none"
+              className="bg-panel border border-edge rounded-suite px-2 min-h-[28px] text-[12px] text-text-primary outline-none focus:border-accent"
             >
               <option value="procedural">Procedural (initial/always block writing to the port)</option>
               <option value="instance">Instance (module definition + instantiation driving the port)</option>
             </select>
           </label>
-          <div className="h-40 border border-edge rounded overflow-hidden">
+          <div className="h-40 border border-edge rounded-suite overflow-hidden">
             <Editor
               height="100%"
               path={`stimulus-${draft.id}.v`}
               defaultLanguage="verilog"
-              theme="vs-dark"
+              theme={monacoTheme}
+              beforeMount={defineSuiteThemes}
               value={draft.verilog?.code || ''}
               onChange={(val) => setDraft((d) => ({ ...d, verilog: { ...d.verilog, code: val ?? '' } }))}
-              options={{ minimap: { enabled: false }, fontSize: 12, lineHeight: 18, scrollBeyondLastLine: false }}
+              options={{ minimap: { enabled: false }, fontSize: 12, lineHeight: 18, fontFamily: monoFontFamily(), scrollBeyondLastLine: false }}
             />
           </div>
         </>
       )}
 
       <div className="flex justify-end gap-2 pt-1">
-        <button onClick={onCancel} className="px-2.5 py-1 rounded text-[12px] text-text-secondary hover:bg-hover">Cancel</button>
+        <button onClick={onCancel} className="min-h-[28px] px-2.5 rounded-suite border border-edge bg-panel text-[12px] text-text-primary hover:bg-accent-bg">Cancel</button>
         <button
           onClick={() => onSave(draft)}
           disabled={!draft.target}
-          className="px-2.5 py-1 rounded text-[12px] font-medium bg-accent/90 hover:bg-accent text-white disabled:opacity-40 disabled:cursor-not-allowed"
+          className="min-h-[28px] px-2.5 rounded-suite text-[12px] font-medium bg-accent hover:brightness-110 text-on-accent disabled:opacity-40 disabled:cursor-not-allowed"
         >
           Save
         </button>
@@ -287,9 +291,9 @@ export default function StimulusConfigPanel({ stimuli, setStimuli, ports, onClos
   const toggleEnabled = (id) => setStimuli((cur) => cur.map((s) => (s.id === id ? { ...s, enabled: s.enabled === false } : s)));
 
   return (
-    <div className="absolute top-2 right-2 bottom-2 w-[340px] bg-panel border border-edge rounded-lg shadow-xl flex flex-col z-30 overflow-hidden">
-      <div className="h-9 shrink-0 flex items-center justify-between px-3 border-b border-edge">
-        <span className="text-[13px] font-semibold text-text-secondary">Signal Sources</span>
+    <div className="absolute top-0 right-0 bottom-0 w-[340px] max-w-full bg-elevated border-l border-edge shadow-[-4px_0_15px_#00000015] flex flex-col z-30 overflow-hidden">
+      <div className="min-h-[31px] shrink-0 flex items-center justify-between px-[9px] bg-base border-b border-rule">
+        <span className="text-[13px] font-medium text-text-primary">Signal Sources</span>
         <button onClick={onClose} className="text-text-muted hover:text-text-primary"><X size={15} /></button>
       </div>
 
@@ -302,7 +306,7 @@ export default function StimulusConfigPanel({ stimuli, setStimuli, ports, onClos
           editingId === s.id && draft ? (
             <StimulusForm key={s.id} draft={draft} setDraft={setDraft} ports={ports} onSave={save} onCancel={cancelEdit} />
           ) : (
-            <div key={s.id} className="flex items-center gap-2 px-2 py-1.5 rounded border border-edge bg-elevated text-[12px]">
+            <div key={s.id} className="flex items-center gap-2 px-2 py-1.5 rounded-suite border border-edge bg-panel text-[12px]">
               <button onClick={() => toggleEnabled(s.id)} className="text-text-muted hover:text-text-primary" title={s.enabled === false ? 'Enable' : 'Disable'}>
                 {s.enabled === false ? <Play size={13} /> : <Pause size={13} />}
               </button>
@@ -325,7 +329,7 @@ export default function StimulusConfigPanel({ stimuli, setStimuli, ports, onClos
       {!draft && (
         <button
           onClick={() => startAdd()}
-          className="m-2 flex items-center justify-center gap-1.5 py-1.5 rounded border border-dashed border-edge text-[12px] text-text-secondary hover:bg-hover"
+          className="m-2 flex items-center justify-center gap-1.5 min-h-[28px] rounded-suite border border-dashed border-edge text-[12px] text-text-primary hover:bg-accent-bg"
         >
           <Plus size={13} /> Add stimulus
         </button>

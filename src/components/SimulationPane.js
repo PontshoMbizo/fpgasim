@@ -1,6 +1,6 @@
 "use client";
 import React, { useState } from 'react';
-import { Cpu, Activity, Monitor } from 'lucide-react';
+import { Cpu, Activity, Monitor, Terminal } from 'lucide-react';
 import HardwareViewer from './hardware/HardwareViewer';
 import SignalGeneratorPane from './SignalGeneratorPane';
 import PaneHeader, { TabButton } from './ui/PaneHeader';
@@ -18,7 +18,7 @@ export default function SimulationPane({ board, isFullscreen, onFullscreen, isCo
   const currentTab = !advanced && (activeTab === 'hdmi' || activeTab === 'uart') ? 'hardware' : activeTab;
 
   return (
-    <div className="w-full h-full flex flex-col bg-panel rounded-lg border border-edge overflow-hidden font-sans shadow-xl">
+    <div className="w-full h-full flex flex-col bg-panel border border-edge overflow-hidden font-sans">
 
       <PaneHeader
         isFullscreen={isFullscreen}
@@ -27,14 +27,11 @@ export default function SimulationPane({ board, isFullscreen, onFullscreen, isCo
         onCollapse={onCollapse}
       >
         <TabButton icon={Cpu} label="Hardware" active={currentTab === 'hardware'} onClick={() => setActiveTab('hardware')} />
-        <div className="w-[1px] h-4 bg-edge mx-1" />
         <TabButton icon={Activity} label="Waveforms" active={currentTab === 'waveforms'} onClick={() => setActiveTab('waveforms')} />
         {advanced && (
           <>
-            <div className="w-[1px] h-4 bg-edge mx-1" />
-            <TabButton icon={Monitor} label="HDMI" active={currentTab === 'hdmi'} onClick={() => setActiveTab('hdmi')} />
-            <div className="w-[1px] h-4 bg-edge mx-1" />
-            <TabButton icon={Activity} label="UART Console" active={currentTab === 'uart'} onClick={() => setActiveTab('uart')} />
+                <TabButton icon={Monitor} label="HDMI" active={currentTab === 'hdmi'} onClick={() => setActiveTab('hdmi')} />
+                <TabButton icon={Terminal} label="UART Console" active={currentTab === 'uart'} onClick={() => setActiveTab('uart')} />
           </>
         )}
       </PaneHeader>
@@ -46,7 +43,7 @@ export default function SimulationPane({ board, isFullscreen, onFullscreen, isCo
             <HardwareViewer board={board} />
           </div>
         ) : currentTab === 'waveforms' ? (
-          <div className="flex-1 overflow-auto p-4">
+          <div className="flex-1 overflow-hidden relative">
             <SignalGeneratorPane />
           </div>
         ) : currentTab === 'hdmi' ? (

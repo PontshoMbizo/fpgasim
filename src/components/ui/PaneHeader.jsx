@@ -1,30 +1,48 @@
 "use client";
 import React from "react";
-import { Maximize, Minimize, ChevronUp, ChevronDown } from "lucide-react";
+import { Maximize2, Minimize2, ChevronUp, ChevronDown } from "lucide-react";
 
-// A single selectable tab button, shared styling for active/inactive states.
+// A selectable tab, styled like the suite's results-dock tabs: the active one sits on
+// a paper chip with an edge border.
 export function TabButton({ icon: Icon, label, active, onClick }) {
   return (
     <button
+      type="button"
+      role="tab"
+      aria-selected={active}
       onClick={onClick}
-      className={`flex items-center gap-1.5 h-full px-2 text-[12px] transition-colors ${
+      className={`flex items-center gap-1.5 min-h-[27px] px-2.5 rounded-suite border text-[13px] transition-colors ${
         active
-          ? "text-text-primary font-bold"
-          : "text-text-muted font-medium hover:text-text-secondary"
+          ? "bg-panel border-edge text-text-primary font-medium"
+          : "border-transparent text-text-secondary hover:bg-accent-bg"
       }`}
     >
-      <Icon
-        size={13}
-        strokeWidth={active ? 2.5 : 2}
-        className={active ? "text-accent" : "text-accent/60"}
-      />
+      <Icon size={14} strokeWidth={2} className={active ? "text-accent" : "text-text-muted"} />
       {label}
     </button>
   );
 }
 
-// Shared pane header with a left content slot (title or tabs) and the
-// Fullscreen / Collapse controls on the right.
+// Small icon-only button used in pane headers and toolbars.
+export function IconButton({ title, onClick, children, pressed }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={title}
+      aria-label={title}
+      aria-pressed={pressed}
+      className={`inline-flex items-center justify-center min-w-[27px] min-h-[27px] px-1.5 rounded-suite transition-colors ${
+        pressed ? "bg-accent-bg text-accent" : "text-text-muted hover:bg-accent-bg hover:text-text-primary"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+// Shared pane header: a left content slot (title or tabs) and the Fullscreen /
+// Collapse controls on the right. Chrome background, like the suite's panel headers.
 export default function PaneHeader({
   children,
   isFullscreen = false,
@@ -33,27 +51,19 @@ export default function PaneHeader({
   onCollapse,
 }) {
   return (
-    <div className="h-7 bg-elevated flex items-center justify-between px-2 shrink-0">
-      <div className="flex items-center h-full">{children}</div>
+    <div className="min-h-[35px] bg-base border-b border-edge flex items-center justify-between gap-2 px-2 py-[3px] shrink-0">
+      <div className="flex items-center flex-wrap gap-1 min-w-0" role="tablist">{children}</div>
 
-      <div className="flex items-center gap-2.5 text-text-muted">
+      <div className="flex items-center gap-0.5">
         {onFullscreen && (
-          <button
-            onClick={onFullscreen}
-            className="hover:text-text-primary transition-colors"
-            title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
-          >
-            {isFullscreen ? <Minimize size={13} /> : <Maximize size={13} />}
-          </button>
+          <IconButton onClick={onFullscreen} title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}>
+            {isFullscreen ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
+          </IconButton>
         )}
         {onCollapse && (
-          <button
-            onClick={onCollapse}
-            className="hover:text-text-primary transition-colors"
-            title={isCollapsed ? "Expand" : "Collapse"}
-          >
-            {isCollapsed ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
-          </button>
+          <IconButton onClick={onCollapse} title={isCollapsed ? "Expand" : "Collapse"}>
+            {isCollapsed ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+          </IconButton>
         )}
       </div>
     </div>

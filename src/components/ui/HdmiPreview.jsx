@@ -4,10 +4,10 @@ import { Monitor } from 'lucide-react';
 export default function HdmiPreview({ ppmBase64 }) {
   if (!ppmBase64) {
     return (
-      <div className="w-full h-full flex flex-col items-center justify-center text-text-muted bg-panel overflow-hidden">
-        <Monitor size={48} className="mb-4 opacity-50" />
+      <div className="w-full h-full flex flex-col items-center justify-center text-text-muted bg-elevated overflow-hidden text-[13px]">
+        <Monitor size={28} className="mb-2.5 opacity-60" />
         <p>No HDMI frame captured.</p>
-        <p className="text-[12px] opacity-70 mt-2">Connect hsync, vsync, and rgb[23:0] in your design.</p>
+        <p className="text-[11px] mt-1">Connect hsync, vsync, and rgb[23:0] in your design.</p>
       </div>
     );
   }
@@ -49,7 +49,7 @@ export default function HdmiPreview({ ppmBase64 }) {
   };
 
   return (
-    <div className="w-full h-full bg-black flex items-center justify-center p-4">
+    <div className="w-full h-full bg-elevated flex items-center justify-center p-3">
       <canvas ref={renderPpm} className="max-w-full max-h-full border border-edge" style={{ imageRendering: 'pixelated' }} />
     </div>
   );

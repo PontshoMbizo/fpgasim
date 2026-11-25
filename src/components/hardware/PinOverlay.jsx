@@ -4,7 +4,7 @@ import { COLORS, STATE_COLORS } from '../../lib/theme';
 export default function PinOverlay({ pin, state, pinFunction, isHovered, isHighlighted, onHover, onLeave, canAddStimulus, onAddStimulus }) {
   // Driven pins are colored by their simulated state; undriven pins are neutral.
   const stateColor = state ? STATE_COLORS[state] : null;
-  const fill = isHovered ? COLORS.info : stateColor || COLORS.textSecondary;
+  const fill = isHovered ? COLORS.info : stateColor || COLORS.pinIdle;
   const stroke = stateColor || COLORS.focus;
 
   // Pulse when the device is active. For active-low devices (like LEDs), it's active when LOW.
@@ -46,7 +46,7 @@ export default function PinOverlay({ pin, state, pinFunction, isHovered, isHighl
           className="cursor-pointer"
         >
           <circle cx={pin.x + 12} cy={pin.y - 12} r="7" fill={COLORS.accent} />
-          <text x={pin.x + 12} y={pin.y - 9} textAnchor="middle" fontSize="10" fontWeight="bold" fill={COLORS.base}>+</text>
+          <text x={pin.x + 12} y={pin.y - 9} textAnchor="middle" fontSize="10" fontWeight="bold" fill={COLORS.onAccent}>+</text>
         </g>
       )}
     </g>

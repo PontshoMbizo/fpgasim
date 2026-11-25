@@ -9,39 +9,39 @@ export default function FloatingInspector({ hoveredPin, hoveredComponent, pinSta
   return (
     <div
       style={{ left: mousePos.x + 20, top: mousePos.y + 20 }}
-      className="fixed z-50 bg-elevated border border-edge text-text-secondary p-4 rounded-lg shadow-xl min-w-[260px] pointer-events-none"
+      className="fixed z-50 bg-panel border border-edge text-text-secondary px-3 py-2.5 rounded-suite shadow-[0_5px_18px_#00000020] min-w-[240px] max-w-[320px] pointer-events-none text-[12px]"
     >
       {hoveredPin && (
         <>
           <div className="flex items-center justify-between">
-            <div className="text-lg font-bold text-text-primary">Pin {hoveredPin.id}</div>
+            <div className="text-[13px] font-medium text-text-primary">Pin {hoveredPin.id}</div>
             {pinState && (
               <span
-                className="text-[11px] font-mono font-bold px-2 py-0.5 rounded"
+                className="text-[11px] font-mono font-medium px-1.5 py-px rounded-suite"
                 style={{ color: STATE_COLORS[pinState], borderColor: STATE_COLORS[pinState], borderWidth: 1 }}
               >
                 {STATE_LABEL[pinState] || pinState}
               </span>
             )}
           </div>
-          <div className="text-text-muted">{hoveredPin.name} · bank {hoveredPin.bank}</div>
+          <div className="text-text-muted text-[11px]">{hoveredPin.name} · bank {hoveredPin.bank}</div>
           <div className="mt-2 flex flex-wrap gap-2 text-[11px]">
-            <span className="px-2 py-0.5 rounded bg-panel border border-edge">{hoveredPin.layer}</span>
-            <span className="px-2 py-0.5 rounded bg-panel border border-edge uppercase">{hoveredPin.kind}</span>
+            <span className="px-1.5 py-px rounded-suite bg-elevated border border-rule">{hoveredPin.layer}</span>
+            <span className="px-1.5 py-px rounded-suite bg-elevated border border-rule uppercase">{hoveredPin.kind}</span>
             {hoveredPin.side && (
-              <span className="px-2 py-0.5 rounded bg-panel border border-edge">{hoveredPin.side}</span>
+              <span className="px-1.5 py-px rounded-suite bg-elevated border border-rule">{hoveredPin.side}</span>
             )}
           </div>
-          <div className="mt-2 text-sm text-text-secondary">
+          <div className="mt-2 text-[12px] text-text-secondary">
             {hoveredPin.special.length ? hoveredPin.special.join(" • ") : "Standard GPIO"}
           </div>
         </>
       )}
       {hoveredComponent && !hoveredPin && (
         <>
-          <div className="text-lg font-bold text-text-primary">{hoveredComponent.name}</div>
-          <div className="text-info">{hoveredComponent.type}</div>
-          <div className="mt-2 text-text-muted text-sm">{hoveredComponent.description}</div>
+          <div className="text-[13px] font-medium text-text-primary">{hoveredComponent.name}</div>
+          <div className="text-accent text-[11px]">{hoveredComponent.type}</div>
+          <div className="mt-2 text-text-muted text-[12px]">{hoveredComponent.description}</div>
         </>
       )}
     </div>
