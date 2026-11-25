@@ -1,21 +1,30 @@
 name: Deploy app
 
-# Deploys to the self-host VM over SSH, using a restricted deploy key that can ONLY
-# run `deploy.sh` on this repo (see ~/.ssh/gha-deploy-dispatch.sh on the host — no
-# general shell access, no port/agent forwarding, no pty). The workflow itself just
-# triggers deploy.sh, which does the actual git fetch + rebuild + restart on the box.
+# Deploys to the self-host VM over SSH once CI has passed on a push to main.
+# The restricted deploy key can ONLY run `deploy nika` on the host (forced command
+# ~/bin/gha-deploy-dispatch.sh: no shell, no port/agent forwarding, no pty), which
+# runs ~/apps/nikaVSimulator/deploy.sh: git fetch + rebuild + restart + check.
 #
 # Required repo secrets (Settings > Secrets and variables > Actions):
-#   DEPLOY_SSH_KEY  — private half of the gha_deploy keypair on the host
-#   DEPLOY_HOST     — VM public IP (or hostname once the domain is live)
-#   DEPLOY_USER     — SSH user on the VM (ubuntu)
+#   DEPLOY_SSH_KEY  - private half of the restricted deploy keypair on the host
+#   DEPLOY_HOST     - VM public IP
+#   DEPLOY_USER     - SSH user on the VM (ubuntu)
 on:
-  push:
+  workflow_run:
+    workflows: [ "CI Pipeline" ]
+    types: [ completed ]
     branches: [ "main" ]
   workflow_dispatch:
 
+# One deploy at a time; a newer push waits rather than racing the running build.
+concurrency:
+  group: deploy-nika
+  cancel-in-progress: false
+
 jobs:
   deploy:
+    # From CI: only a successful run triggered by a push (never a pull request).
+    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
     runs-on: ubuntu-latest
     steps:
       - name: Check secrets are configured
